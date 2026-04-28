@@ -472,7 +472,16 @@ export default function QuizScreen({
     // Only speak immediately if auto-read is off.
     // When auto-read is on, the useEffect watching showFeedback handles it
     // after a short delay — speaking here too would cause double-speaking.
-
+    if (!getAutoRead()) {
+      const correctOption = shuffledOptions.find((o) => o.correct);
+      speak(
+        buildFeedbackScript(
+          correct,
+          currentQuestion.explanation,
+          correctOption?.text ?? "",
+        ),
+      );
+    }
     await recordAnswer(sessionId, {
       scamId: currentScam.id,
       questionId: currentQuestion.id,
@@ -964,8 +973,8 @@ function Wrapper({ children, onHome }) {
       <div
         style={{
           padding: "24px clamp(14px, 4vw, 64px) 60px",
-          overflowX: "hidden",
           boxSizing: "border-box",
+          overflowX: "hidden",
         }}
       >
         {children}
@@ -1009,18 +1018,20 @@ function ProgressBar({
             transition: "width 0.4s ease",
           }}
         />
-        {/* Topic milestone ticks */}
+        {/* Topic milestone ticks — gold, thick, visible */}
         {milestones.map((pos, i) => (
           <div
             key={i}
             style={{
               position: "absolute",
-              top: 0,
+              top: -3,
               left: `${pos}%`,
-              width: 2,
-              height: "100%",
-              background: pos <= pct ? "#C8952A" : "#C9B8E8",
+              width: 4,
+              height: "calc(100% + 6px)",
+              background: pos <= pct ? "#C8952A" : "#D0C0E8",
+              borderRadius: 2,
               transform: "translateX(-50%)",
+              zIndex: 2,
             }}
           />
         ))}
