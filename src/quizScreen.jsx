@@ -1,0 +1,880 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// QuizScreen.jsx
+//
+// All visible text is defined as named TEXT_ constants at the top of the file.
+// The same constants are used in both the JSX (what is displayed) and the
+// speech builders (what is spoken). Changing a constant updates both
+// the screen and the read-aloud automatically — there is no separate copy.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useState, useEffect, useRef } from "react";
+import { recordAnswer, completeSession } from "./analytics.js";
+
+// ─── All visible text ─────────────────────────────────────────────────────────
+// Edit any of these strings and both the displayed text and the spoken text
+// will update automatically.
+
+// Intro screen
+const TEXT_FIRST_UP        = "First up";
+const TEXT_NEXT_UP         = "Next up";
+const TEXT_START_QUESTIONS = "Start questions →";
+const TEXT_READ_MESSAGE    = "Read the message →";
+
+// Question screen — easy / medium
+const TEXT_QUESTION_OF     = "Question"; // used as "Question X of Y"
+const TEXT_HARD_MODE_LABEL = "Hard mode";
+const TEXT_CHECK_ANSWER    = "Check answer";
+const TEXT_NEXT_QUESTION   = "Next question →";
+const TEXT_NEXT_TOPIC      = "Next topic →";
+const TEXT_SEE_RESULTS     = "See results →";
+const TEXT_CORRECT         = "✓ Correct!";
+const TEXT_NOT_QUITE       = "✗ Not quite";
+
+// Hard mode
+const TEXT_SHOW_ANSWERS    = "Show answers";
+const TEXT_HARD_HINT_BEFORE = (total) => `Tap on any part of the message you think is suspicious. There are ${total} red flags to find.`;
+const TEXT_HARD_HINT_AFTER  = (found, total) => `You found ${found} of ${total} red flags.`;
+const TEXT_FLAG_PREFIX     = "🚩";
+const TEXT_MISSED_PREFIX   = "⚠️ Missed:";
+const TEXT_NOT_A_FLAG      = "ℹ️ This part is not a red flag.";
+
+// Results screen
+const TEXT_QUIZ_COMPLETE   = "Quiz complete!";
+const TEXT_CORRECT_LABEL   = "correct";
+const TEXT_SCORE_BY_TOPIC  = "Your score by topic";
+const TEXT_PRINT_BTN       = "🖨️ Print results with answers & explanations";
+const TEXT_PLAY_AGAIN      = "Play again →";
+const TEXT_RESULTS_FOOTER  = "Your answers have been recorded anonymously. Thank you for helping our research.";
+
+const TEXT_RESULT_EXCELLENT = "Excellent — you have a strong awareness of these scams.";
+const TEXT_RESULT_GOOD      = "Good work. Reviewing the topics you found difficult will help build confidence.";
+const TEXT_RESULT_KEEP_GOING = "These scams are designed to be convincing. Keep practising — awareness is the best protection.";
+
+// Print page
+const TEXT_PRINT_TITLE     = "Scam Shield — Quiz Results";
+const TEXT_PRINT_DIFFICULTY = "Difficulty:";
+const TEXT_PRINT_CORRECT_ANS = "Correct answer:";
+const TEXT_PRINT_RED_FLAG   = "Red flag";
+const TEXT_PRINT_FOOTER    = "Scam Shield — scam awareness program for older adults. All data collected is anonymous and used for research purposes only.";
+
+// Progress bar
+const TEXT_TOPIC_OF        = "Topic"; // used as "Topic X of Y"
+
+// Read aloud button label
+const TEXT_SPEAK_LABEL_QUESTION = "Read question aloud";
+const TEXT_SPEAK_LABEL_FEEDBACK = "Read feedback aloud";
+const TEXT_SPEAK_LABEL_MESSAGE  = "Read message aloud";
+const TEXT_SPEAK_LABEL_INTRO    = "Read this page aloud";
+const TEXT_SPEAK_LABEL_RESULTS  = "Read results aloud";
+
+// ─── Speech speed ────────────────────────────────────────────────────────────
+// Reads the speed the user selected on the home screen.
+// Defaults to 0.88 if nothing has been saved yet.
+const SPEECH_SPEED_KEY = "scamshield_speech_speed";
+
+function getSpeechRate() {
+  try {
+    const saved = localStorage.getItem(SPEECH_SPEED_KEY);
+    return saved ? parseFloat(saved) : 0.88;
+  } catch {
+    return 0.88;
+  }
+}
+
+// Reads the auto-read preference saved by the home screen.
+const AUTO_READ_KEY = "scamshield_auto_read";
+
+function getAutoRead() {
+  try { return localStorage.getItem(AUTO_READ_KEY) === "true"; }
+  catch { return false; }
+}
+
+// ─── Speech utility ─────────────────────────────────────────────────────────
+// Tracks the last text spoken so speed changes can restart it.
+let _lastSpokenText = "";
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  // Remember what was spoken so speed changes can restart it
+  _lastSpokenText = text;
+
+  // Split at sentence-ending punctuation to create natural pauses.
+  const chunks = text
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  chunks.forEach((chunk, i) => {
+    const utterance   = new SpeechSynthesisUtterance(chunk);
+    utterance.rate    = getSpeechRate();  // reads speed saved by the home screen
+    utterance.pitch   = 1;
+    if (i > 0) {
+      const pause   = new SpeechSynthesisUtterance(" ");
+      pause.rate    = 0.1;
+      pause.volume  = 0;
+      window.speechSynthesis.speak(pause);
+    }
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+function stopSpeech() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+// ─── Speech builders ──────────────────────────────────────────────────────────
+// Each builder reads from the TEXT_ constants and the live data — no separate
+// hardcoded strings. Change a TEXT_ constant and the speech changes too.
+
+function buildIntroScript(scam, isFirst, isHardMode) {
+  return [
+    isFirst ? TEXT_FIRST_UP : TEXT_NEXT_UP,
+    scam.name + ".",
+    scam.description,
+    scam.stats.losses + ".",
+    scam.stats.complaints + ".",
+    isHardMode
+      ? `Tap ${TEXT_READ_MESSAGE.replace(" →", "")} to begin.`
+      : `Tap ${TEXT_START_QUESTIONS.replace(" →", "")} to begin.`,
+  ].join(" ");
+}
+
+function buildQuestionScript(question, shuffledOptions) {
+  const optionLetters = ["A", "B", "C", "D"];
+  const optionTexts   = shuffledOptions
+    .map((o, i) => `Option ${optionLetters[i]}: ${o.text}`)
+    .join(". ");
+  return `${question.question} ${optionTexts}`;
+}
+
+function buildFeedbackScript(correct, explanation, correctOptionText) {
+  const result = correct
+    ? TEXT_CORRECT.replace("✓ ", "")
+    : TEXT_NOT_QUITE.replace("✗ ", "");
+  return `${result} The correct answer is: ${correctOptionText}. ${explanation}`;
+}
+
+function buildHardRevealScript(found, total, missed) {
+  const hintAfter  = TEXT_HARD_HINT_AFTER(found, total);
+  const missedText = missed > 0
+    ? `You missed ${missed} red flag${missed > 1 ? "s" : ""}.`
+    : "You found all the red flags!";
+  return `${hintAfter} ${missedText}`;
+}
+
+function buildResultsScript(overallPct, totalCorrect, totalQuestions, scamScores) {
+  const summary = `${TEXT_QUIZ_COMPLETE} You scored ${overallPct} percent overall, getting ${totalCorrect} out of ${totalQuestions} questions ${TEXT_CORRECT_LABEL}.`;
+  const breakdown = scamScores
+    .map(s => `${s.scamName}: ${s.correct} out of ${s.total}.`)
+    .join(" ");
+  const message = overallPct >= 80
+    ? TEXT_RESULT_EXCELLENT
+    : overallPct >= 50
+    ? TEXT_RESULT_GOOD
+    : TEXT_RESULT_KEEP_GOING;
+  return [summary, message, TEXT_SCORE_BY_TOPIC + ".", breakdown].join(" ");
+}
+
+// ─── Print utility ────────────────────────────────────────────────────────────
+
+function openPrintPage(scams, difficulty, scamScores) {
+  const isHardMode    = difficulty === "hard";
+  const totalCorrect  = scamScores.reduce((sum, s) => sum + s.correct, 0);
+  const totalQuestions = scamScores.reduce((sum, s) => sum + s.total, 0);
+  const overallPct    = totalQuestions
+    ? Math.round((totalCorrect / totalQuestions) * 100)
+    : 0;
+
+  // Print page title and difficulty use TEXT_ constants
+  let body = `
+    <h1 style="font-family: Georgia, serif; color: #1A3C5E;">
+      🛡️ ${TEXT_PRINT_TITLE}
+    </h1>
+    <p style="font-family: sans-serif; color: #555;">
+      ${TEXT_PRINT_DIFFICULTY} <strong>${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</strong>
+    </p>
+    <hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;" />
+    <div style="background: #F0F4F8; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; font-family: sans-serif;">
+      <p style="font-size: 32px; font-weight: 700; color: #1A3C5E; margin: 0;">${overallPct}%</p>
+      <p style="color: #555; margin: 4px 0 0;">${totalCorrect} / ${totalQuestions} ${TEXT_CORRECT_LABEL}</p>
+    </div>
+  `;
+
+  scams.forEach(scam => {
+    body += `
+      <h2 style="font-family: Georgia, serif; color: #1A3C5E; margin-top: 32px;">
+        ${scam.icon} ${scam.name}
+      </h2>
+    `;
+    if (isHardMode) {
+      const hardContent = scam.hard;
+      body += `<p style="font-family: sans-serif; color: #555; font-style: italic;">${hardContent.instruction}</p>`;
+      hardContent.body.forEach((segment, idx) => {
+        if (!segment.isFlag) return;
+        // TEXT_PRINT_RED_FLAG drives the label in the print page
+        body += `
+          <div style="background: #FADADD; border-left: 4px solid #9B2335; padding: 10px 14px; margin-bottom: 10px; border-radius: 4px; font-family: sans-serif;">
+            <p style="margin: 0; font-weight: 600; color: #6B1020;">🚩 ${TEXT_PRINT_RED_FLAG} ${idx + 1}</p>
+            <p style="margin: 6px 0 0; color: #333;">"${segment.text}"</p>
+            <p style="margin: 6px 0 0; color: #555; font-size: 14px;">${segment.reason}</p>
+          </div>
+        `;
+      });
+    } else {
+      const questions = scam[difficulty];
+      questions.forEach((q, idx) => {
+        const correctOption = q.options.find(o => o.correct);
+        // TEXT_PRINT_CORRECT_ANS drives the label
+        body += `
+          <div style="margin-bottom: 20px; font-family: sans-serif;">
+            <p style="font-weight: 600; color: #1A3C5E; margin: 0 0 6px;">
+              Q${idx + 1}. ${q.question}
+            </p>
+            <p style="margin: 0 0 4px; color: #2D6A4F;">
+              ✓ <strong>${TEXT_PRINT_CORRECT_ANS}</strong> ${correctOption?.text ?? "—"}
+            </p>
+            <p style="margin: 0; color: #555; font-size: 14px;">${q.explanation}</p>
+          </div>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 0 0 16px;" />
+        `;
+      });
+    }
+  });
+
+  body += `<p style="font-family: sans-serif; font-size: 12px; color: #999; margin-top: 32px;">${TEXT_PRINT_FOOTER}</p>`;
+
+  const printWindow = window.open("", "_blank");
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${TEXT_PRINT_TITLE}</title>
+        <style>
+          body { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body>${body}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.onload = () => printWindow.print();
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function QuizScreen({
+  difficulty,
+  scams,
+  ageRange,
+  sessionId,
+  onPlayAgain,
+}) {
+  const [screen, setScreen]                 = useState("intro");
+  const [scamIndex, setScamIndex]           = useState(0);
+  const [questionIndex, setQuestionIndex]   = useState(0);
+  const [shuffledOptions, setShuffledOptions] = useState([]);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [showFeedback, setShowFeedback]     = useState(false);
+  const [highlighted, setHighlighted]       = useState({});
+  const [answersRevealed, setAnswersRevealed] = useState(false);
+  const [senderHighlighted, setSenderHighlighted] = useState(false);
+  const [scamScores, setScamScores]         = useState([]);
+  const [currentScamScore, setCurrentScamScore] = useState(0);
+  // Ref that always holds the latest scamScores so the results auto-read
+  // useEffect can read the correct value immediately after setScreen("results"),
+  // before the state update has committed to a re-render.
+  const scamScoresRef = useRef([]);
+
+  const questionStartTime = useRef(Date.now());
+  const quizStartTime     = useRef(Date.now());
+
+  const isHardMode      = difficulty === "hard";
+  const currentScam     = scams[scamIndex] ?? null;
+  const questions       = currentScam && !isHardMode ? currentScam[difficulty] : null;
+  const currentQuestion = questions ? questions[questionIndex] ?? null : null;
+
+  // Keep ref in sync with state so the results useEffect always has latest scores
+  useEffect(() => { scamScoresRef.current = scamScores; }, [scamScores]);
+
+  useEffect(() => { stopSpeech(); }, [screen, scamIndex, questionIndex]);
+
+  // Auto-read: when auto-read is on, speak content after a 1.5s delay whenever
+  // the screen, scam, or question changes. The delay lets the screen render first.
+  useEffect(() => {
+    if (!getAutoRead()) return;
+
+    let text = null;
+
+    if (screen === "intro" && currentScam) {
+      const isFirst = scamIndex === 0;
+      // buildIntroScript reads from scamData directly — same as the JSX
+      text = buildIntroScript(currentScam, isFirst, isHardMode);
+    }
+
+    if (screen === "question" && !isHardMode && currentQuestion) {
+      // buildQuestionScript reads from currentQuestion.question and options
+      text = buildQuestionScript(currentQuestion, shuffledOptions);
+    }
+
+    if (screen === "question" && isHardMode && currentScam) {
+      const hardContent = currentScam.hard;
+      const bodyText    = hardContent.body.map(s => s.text).join(" ");
+      text = `${hardContent.instruction} The message reads: ${bodyText}`;
+    }
+
+    if (!text) return;
+    const timer = setTimeout(() => speak(text), 1500);
+    return () => clearTimeout(timer);
+  }, [screen, scamIndex, questionIndex]);
+
+  // Auto-read: speak feedback automatically after the user checks an answer
+  useEffect(() => {
+    if (!getAutoRead()) return;
+    if (!showFeedback || !currentQuestion) return;
+    const correctOption = shuffledOptions.find(o => o.correct);
+    const text = buildFeedbackScript(
+      selectedOption?.correct,
+      currentQuestion.explanation,
+      correctOption?.text ?? ""
+    );
+    const timer = setTimeout(() => speak(text), 800);
+    return () => clearTimeout(timer);
+  }, [showFeedback]);
+
+  // Auto-read: speak results automatically when the results screen appears.
+  // Uses scamScoresRef.current so it reads the correct value immediately,
+  // before the setScamScores state update has committed.
+  useEffect(() => {
+    if (!getAutoRead()) return;
+    if (screen !== "results") return;
+    const scores = scamScoresRef.current;
+    if (scores.length === 0) return;
+    const totalCorrect   = scores.reduce((sum, s) => sum + s.correct, 0);
+    const totalQuestions = scores.reduce((sum, s) => sum + s.total, 0);
+    const overallPct     = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+    const text = buildResultsScript(overallPct, totalCorrect, totalQuestions, scores);
+    const timer = setTimeout(() => speak(text), 1500);
+    return () => clearTimeout(timer);
+  }, [screen]);
+
+  useEffect(() => {
+    if (!isHardMode && currentQuestion?.options) {
+      setShuffledOptions(shuffleArray(currentQuestion.options));
+    }
+    setSelectedOption(null);
+    setShowFeedback(false);
+    setHighlighted({});
+    setAnswersRevealed(false);
+    setSenderHighlighted(false);
+    questionStartTime.current = Date.now();
+  }, [scamIndex, questionIndex]);
+
+  // ── Multiple choice handlers ──────────────────────────────────────────────
+
+  const handleSelectOption = (option) => {
+    if (showFeedback) return;
+    setSelectedOption(option);
+  };
+
+  const handleCheckAnswer = async () => {
+    if (!selectedOption || showFeedback) return;
+    const correct    = selectedOption.correct;
+    const timeTaken  = Math.round((Date.now() - questionStartTime.current) / 1000);
+    if (correct) setCurrentScamScore((s) => s + 1);
+    setShowFeedback(true);
+    // Only speak immediately if auto-read is off.
+    // When auto-read is on, the useEffect watching showFeedback handles it
+    // after a short delay — speaking here too would cause double-speaking.
+    if (getAutoRead()) {
+      const correctOption = shuffledOptions.find(o => o.correct);
+      speak(buildFeedbackScript(correct, currentQuestion.explanation, correctOption?.text ?? ""));
+    }
+    await recordAnswer(sessionId, {
+      scamId: currentScam.id, questionId: currentQuestion.id,
+      ageRange, difficulty, correct, timeTaken,
+    });
+  };
+
+  // ── Hard mode handlers ────────────────────────────────────────────────────
+
+  const handleToggleHighlight = (segmentId) => {
+    if (answersRevealed) return;
+    setHighlighted((prev) => ({ ...prev, [segmentId]: !prev[segmentId] }));
+  };
+
+  const handleRevealAnswers = async () => {
+    if (answersRevealed) return;
+    const hardContent    = currentScam.hard;
+    const allFlags       = hardContent.body.filter((s) => s.isFlag);
+    const correctHits    = allFlags.filter((s) => highlighted[s.id]).length;
+    const falsePositives = hardContent.body.filter((s) => !s.isFlag && highlighted[s.id]).length;
+    const score          = Math.max(0, correctHits - falsePositives);
+    const timeTaken      = Math.round((Date.now() - questionStartTime.current) / 1000);
+    const missed         = allFlags.length - correctHits;
+    setCurrentScamScore((s) => s + score);
+    setAnswersRevealed(true);
+    // Only speak immediately if auto-read is off — same pattern as feedback
+    if (!getAutoRead()) {
+      speak(buildHardRevealScript(correctHits, allFlags.length, missed));
+    }
+    for (const segment of hardContent.body) {
+      if (!segment.isFlag) continue;
+      await recordAnswer(sessionId, {
+        scamId: currentScam.id, questionId: segment.id,
+        ageRange, difficulty, correct: !!highlighted[segment.id], timeTaken,
+      });
+    }
+  };
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  const handleNextQuestion = async () => {
+    const isLastQuestion = isHardMode ? true : questionIndex + 1 >= questions.length;
+    if (isLastQuestion) {
+      const total = isHardMode
+        ? currentScam.hard.body.filter((s) => s.isFlag).length
+        : questions.length;
+      const newScore = {
+        scamId: currentScam.id, scamName: currentScam.name,
+        scamIcon: currentScam.icon, correct: currentScamScore, total,
+      };
+      const updatedScores = [...scamScores, newScore];
+      // Update the ref immediately so the results auto-read useEffect
+      // can read the correct scores before setScamScores commits.
+      scamScoresRef.current = updatedScores;
+      setScamScores(updatedScores);
+      const isLastScam = scamIndex + 1 >= scams.length;
+      if (isLastScam) {
+        const totalTime = Math.round((Date.now() - quizStartTime.current) / 1000);
+        await completeSession(sessionId, totalTime);
+        setScreen("results");
+      } else {
+        setScamIndex((i) => i + 1);
+        setQuestionIndex(0);
+        setCurrentScamScore(0);
+        setScreen("intro");
+      }
+    } else {
+      setQuestionIndex((i) => i + 1);
+      setScreen("question");
+    }
+  };
+
+  // ── Screen: Intro ─────────────────────────────────────────────────────────
+  if (screen === "intro") {
+    if (!currentScam) return null;
+    const isFirst = scamIndex === 0;
+    return (
+      <Wrapper>
+        <ProgressBar current={scamIndex} total={scams.length} />
+        <Spacer h={32} />
+        <div style={styles.introLabelRow}>
+          {/* TEXT_FIRST_UP / TEXT_NEXT_UP drive both display and speech */}
+          <p style={styles.introLabel}>{isFirst ? TEXT_FIRST_UP : TEXT_NEXT_UP}</p>
+          <SpeakButton
+            onClick={() => speak(buildIntroScript(currentScam, isFirst, isHardMode))}
+            label={TEXT_SPEAK_LABEL_INTRO}
+          />
+        </div>
+        <Spacer h={12} />
+        <div style={styles.introCard}>
+          <span style={styles.introIcon}>{currentScam.icon}</span>
+          <Spacer h={12} />
+          {/* scam data comes from scamData.js — change it there and speech updates */}
+          <p style={styles.introName}>{currentScam.name}</p>
+          <Spacer h={8} />
+          <p style={styles.introDesc}>{currentScam.description}</p>
+          <Spacer h={8} />
+          <p style={styles.introStat}>{currentScam.stats.losses}</p>
+        </div>
+        <Spacer h={32} />
+        <BigButton onClick={() => setScreen("question")}>
+          {/* TEXT_READ_MESSAGE / TEXT_START_QUESTIONS drive both button and speech */}
+          {isHardMode ? TEXT_READ_MESSAGE : TEXT_START_QUESTIONS}
+        </BigButton>
+      </Wrapper>
+    );
+  }
+
+  // ── Screen: Question — easy / medium ──────────────────────────────────────
+  if (screen === "question" && !isHardMode) {
+    if (!currentScam || !currentQuestion) return null;
+    return (
+      <Wrapper>
+        <ProgressBar current={scamIndex} total={scams.length} />
+        <Spacer h={8} />
+        <div style={styles.questionHeader}>
+          <p style={styles.questionCounter}>
+            {/* TEXT_QUESTION_OF drives both the label and the speech */}
+            {currentScam.icon} {currentScam.name} — {TEXT_QUESTION_OF} {questionIndex + 1} of {questions.length}
+          </p>
+          <SpeakButton
+            onClick={() => speak(buildQuestionScript(currentQuestion, shuffledOptions))}
+            label={TEXT_SPEAK_LABEL_QUESTION}
+          />
+        </div>
+        <Spacer h={16} />
+        <div style={styles.questionBox}>
+          {/* currentQuestion.question comes from scamData.js */}
+          <p style={styles.questionText}>{currentQuestion.question}</p>
+        </div>
+        <Spacer h={16} />
+        <div style={styles.optionsList}>
+          {shuffledOptions.map((option, idx) => {
+            let borderColor = "#D0D8E0";
+            let background  = "#fff";
+            let textColor   = "#333";
+            if (selectedOption === option && !showFeedback) {
+              borderColor = "#1A3C5E"; background = "#E0EAF4";
+            }
+            if (showFeedback) {
+              if (option.correct) {
+                borderColor = "#2D6A4F"; background = "#D8F3DC"; textColor = "#1B4332";
+              } else if (selectedOption === option && !option.correct) {
+                borderColor = "#9B2335"; background = "#FADADD"; textColor = "#6B1020";
+              }
+            }
+            return (
+              <button
+                key={idx}
+                onClick={() => handleSelectOption(option)}
+                disabled={showFeedback}
+                style={{ ...styles.optionBtn, borderColor, background, color: textColor, cursor: showFeedback ? "default" : "pointer" }}
+              >
+                {option.text}
+              </button>
+            );
+          })}
+        </div>
+        <Spacer h={20} />
+        {showFeedback && (
+          <div style={{
+            ...styles.feedbackBox,
+            borderColor: selectedOption?.correct ? "#2D6A4F" : "#9B2335",
+            background:  selectedOption?.correct ? "#D8F3DC" : "#FADADD",
+          }}>
+            <div style={styles.feedbackHeader}>
+              <p style={{ ...styles.feedbackResult, color: selectedOption?.correct ? "#1B4332" : "#6B1020" }}>
+                {/* TEXT_CORRECT / TEXT_NOT_QUITE drive both display and speech */}
+                {selectedOption?.correct ? TEXT_CORRECT : TEXT_NOT_QUITE}
+              </p>
+              {/* This button always speaks on tap regardless of auto-read */}
+              <SpeakButton
+                onClick={() => {
+                  const correctOption = shuffledOptions.find(o => o.correct);
+                  speak(buildFeedbackScript(selectedOption?.correct, currentQuestion.explanation, correctOption?.text ?? ""));
+                }}
+                label={TEXT_SPEAK_LABEL_FEEDBACK}
+              />
+            </div>
+            <Spacer h={6} />
+            {/* currentQuestion.explanation comes from scamData.js */}
+            <p style={styles.feedbackExplanation}>{currentQuestion.explanation}</p>
+          </div>
+        )}
+        <Spacer h={20} />
+        {!showFeedback && (
+          <BigButton onClick={handleCheckAnswer} disabled={!selectedOption}>
+            {TEXT_CHECK_ANSWER}
+          </BigButton>
+        )}
+        {showFeedback && (
+          <BigButton onClick={handleNextQuestion}>
+            {questionIndex + 1 >= questions.length
+              ? scamIndex + 1 >= scams.length ? TEXT_SEE_RESULTS : TEXT_NEXT_TOPIC
+              : TEXT_NEXT_QUESTION}
+          </BigButton>
+        )}
+      </Wrapper>
+    );
+  }
+
+  // ── Screen: Question — hard mode ──────────────────────────────────────────
+  if (screen === "question" && isHardMode) {
+    if (!currentScam) return null;
+    const hardContent = currentScam.hard;
+    const totalFlags  = hardContent.body.filter((s) => s.isFlag).length;
+    const foundSoFar  = hardContent.body.filter((s) => s.isFlag && highlighted[s.id]).length;
+    return (
+      <Wrapper>
+        <ProgressBar current={scamIndex} total={scams.length} />
+        <Spacer h={8} />
+        <div style={styles.questionHeader}>
+          <p style={styles.questionCounter}>
+            {currentScam.icon} {currentScam.name} — {TEXT_HARD_MODE_LABEL}
+          </p>
+          <SpeakButton
+            onClick={() => {
+              const bodyText = hardContent.body.map(s => s.text).join(" ");
+              speak(`${hardContent.instruction} The message reads: ${bodyText}`);
+            }}
+            label={TEXT_SPEAK_LABEL_MESSAGE}
+          />
+        </div>
+        <Spacer h={8} />
+        <div style={styles.questionBox}>
+          {/* hardContent.instruction comes from scamData.js */}
+          <p style={styles.questionText}>{hardContent.instruction}</p>
+        </div>
+        <Spacer h={16} />
+        <div style={styles.messageCard}>
+          <div style={styles.messageMeta}>
+            <span style={styles.messageMetaLabel}>
+              {hardContent.type === "email" ? "From:" : hardContent.type === "phone" ? "Caller:" : "From:"}
+            </span>
+            <button
+              onClick={() => !answersRevealed && setSenderHighlighted((s) => !s)}
+              style={{
+                ...styles.messageMetaValue,
+                background: senderHighlighted
+                  ? answersRevealed ? hardContent.senderIsFlag ? "#FADADD" : "#D8F3DC" : "#FDE8D0"
+                  : "transparent",
+                borderRadius: 4, padding: "2px 6px",
+                cursor: answersRevealed ? "default" : "pointer",
+                border: "none", textAlign: "left",
+              }}
+            >
+              {hardContent.from}
+            </button>
+          </div>
+          {answersRevealed && senderHighlighted && hardContent.senderIsFlag && (
+            <p style={styles.flagReason}>{TEXT_FLAG_PREFIX} {hardContent.senderReason}</p>
+          )}
+          {answersRevealed && !senderHighlighted && hardContent.senderIsFlag && (
+            <p style={{ ...styles.flagReason, color: "#B5621A" }}>
+              {TEXT_MISSED_PREFIX} {hardContent.senderReason}
+            </p>
+          )}
+          {hardContent.subject && (
+            <>
+              <Spacer h={6} />
+              <div style={styles.messageMeta}>
+                <span style={styles.messageMetaLabel}>Subject:</span>
+                <span style={styles.messageMetaValue}>{hardContent.subject}</span>
+              </div>
+            </>
+          )}
+          <Spacer h={14} />
+          {hardContent.body.map((segment) => {
+            const isHighlighted = !!highlighted[segment.id];
+            let segBackground   = "transparent";
+            let showReason      = false;
+            if (!answersRevealed && isHighlighted) segBackground = "#FDE8D0";
+            if (answersRevealed) {
+              if (segment.isFlag && isHighlighted)  { segBackground = "#FADADD"; showReason = true; }
+              else if (segment.isFlag && !isHighlighted) { segBackground = "#FFF8E1"; showReason = true; }
+              else if (!segment.isFlag && isHighlighted)  segBackground = "#E0EAF4";
+            }
+            return (
+              <div key={segment.id} style={{ marginBottom: 10 }}>
+                <button
+                  onClick={() => handleToggleHighlight(segment.id)}
+                  style={{
+                    ...styles.segmentBtn, background: segBackground,
+                    cursor: answersRevealed ? "default" : "pointer",
+                    borderBottom: isHighlighted && !answersRevealed ? "2px solid #B5621A" : "2px solid transparent",
+                  }}
+                >
+                  {segment.text}
+                </button>
+                {showReason && segment.isFlag && isHighlighted && (
+                  <p style={styles.flagReason}>{TEXT_FLAG_PREFIX} {segment.reason}</p>
+                )}
+                {showReason && segment.isFlag && !isHighlighted && (
+                  <p style={{ ...styles.flagReason, color: "#B5621A" }}>
+                    {TEXT_MISSED_PREFIX} {segment.reason}
+                  </p>
+                )}
+                {answersRevealed && !segment.isFlag && isHighlighted && (
+                  <p style={{ ...styles.flagReason, color: "#1A3C5E" }}>{TEXT_NOT_A_FLAG}</p>
+                )}
+              </div>
+            );
+          })}
+          <Spacer h={8} />
+          <p style={styles.hardHint}>
+            {/* TEXT_HARD_HINT_BEFORE / AFTER are functions — change the template string in them */}
+            {answersRevealed
+              ? TEXT_HARD_HINT_AFTER(foundSoFar, totalFlags)
+              : TEXT_HARD_HINT_BEFORE(totalFlags)}
+          </p>
+        </div>
+        <Spacer h={20} />
+        {!answersRevealed && (
+          <BigButton onClick={handleRevealAnswers}>{TEXT_SHOW_ANSWERS}</BigButton>
+        )}
+        {answersRevealed && (
+          <BigButton onClick={handleNextQuestion}>
+            {scamIndex + 1 >= scams.length ? TEXT_SEE_RESULTS : TEXT_NEXT_TOPIC}
+          </BigButton>
+        )}
+      </Wrapper>
+    );
+  }
+
+  // ── Screen: Results ───────────────────────────────────────────────────────
+  if (screen === "results") {
+    const totalCorrect   = scamScores.reduce((sum, s) => sum + s.correct, 0);
+    const totalQuestions = scamScores.reduce((sum, s) => sum + s.total, 0);
+    const overallPct     = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+    return (
+      <Wrapper>
+        <div style={styles.resultsHeader}>
+          {/* TEXT_QUIZ_COMPLETE drives both display and speech */}
+          <p style={styles.resultsTitle}>{TEXT_QUIZ_COMPLETE}</p>
+          <SpeakButton
+            onClick={() => speak(buildResultsScript(overallPct, totalCorrect, totalQuestions, scamScores))}
+            label={TEXT_SPEAK_LABEL_RESULTS}
+          />
+        </div>
+        <Spacer h={24} />
+        <div style={styles.overallScoreCard}>
+          <p style={styles.overallPct}>{overallPct}%</p>
+          <p style={styles.overallFraction}>{totalCorrect} / {totalQuestions} {TEXT_CORRECT_LABEL}</p>
+          <Spacer h={8} />
+          <p style={styles.overallMessage}>
+            {overallPct >= 80 ? TEXT_RESULT_EXCELLENT : overallPct >= 50 ? TEXT_RESULT_GOOD : TEXT_RESULT_KEEP_GOING}
+          </p>
+        </div>
+        <Spacer h={24} />
+        {/* TEXT_SCORE_BY_TOPIC drives both display and speech */}
+        <p style={styles.breakdownTitle}>{TEXT_SCORE_BY_TOPIC}</p>
+        <Spacer h={12} />
+        {scamScores.map((s) => {
+          const pct      = Math.round((s.correct / s.total) * 100);
+          const barColor = pct >= 80 ? "#2D6A4F" : pct >= 50 ? "#B5621A" : "#9B2335";
+          return (
+            <div key={s.scamId} style={styles.breakdownRow}>
+              <div style={styles.breakdownHeader}>
+                <span style={styles.breakdownName}>{s.scamIcon} {s.scamName}</span>
+                <span style={{ ...styles.breakdownPct, color: barColor }}>{s.correct}/{s.total}</span>
+              </div>
+              <div style={styles.barTrack}>
+                <div style={{ ...styles.barFill, width: `${pct}%`, background: barColor }} />
+              </div>
+            </div>
+          );
+        })}
+        <Spacer h={32} />
+        {/* TEXT_PRINT_BTN drives both the button label and the print page title */}
+        <button onClick={() => openPrintPage(scams, difficulty, scamScores)} style={styles.printBtn}>
+          {TEXT_PRINT_BTN}
+        </button>
+        <Spacer h={12} />
+        <BigButton onClick={onPlayAgain}>{TEXT_PLAY_AGAIN}</BigButton>
+        <Spacer h={16} />
+        {/* TEXT_RESULTS_FOOTER drives both display and speech (via buildResultsScript) */}
+        <p style={styles.footer}>{TEXT_RESULTS_FOOTER}</p>
+      </Wrapper>
+    );
+  }
+
+  return null;
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+
+function shuffleArray(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function Wrapper({ children }) {
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "32px 24px 60px", fontFamily: "'Georgia', serif" }}>
+      {children}
+    </div>
+  );
+}
+
+function ProgressBar({ current, total }) {
+  const pct = Math.round((current / total) * 100);
+  return (
+    <div>
+      <div style={styles.barTrack}>
+        <div style={{ ...styles.barFill, width: `${pct}%`, background: "#1A3C5E", transition: "width 0.4s ease" }} />
+      </div>
+      {/* TEXT_TOPIC_OF drives both display and speech */}
+      <p style={styles.progressLabel}>{TEXT_TOPIC_OF} {current} of {total}</p>
+    </div>
+  );
+}
+
+function SpeakButton({ onClick, label }) {
+  return (
+    <button onClick={onClick} style={styles.speakBtn} title={label} aria-label={label}>
+      🔊
+    </button>
+  );
+}
+
+function BigButton({ children, onClick, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width: "100%", padding: "18px 24px", fontSize: 18, fontWeight: 600,
+      fontFamily: "sans-serif", background: disabled ? "#D0D8E0" : "#1A3C5E",
+      color: disabled ? "#888" : "#fff", border: "none", borderRadius: 10,
+      cursor: disabled ? "not-allowed" : "pointer", transition: "background 0.2s",
+    }}>
+      {children}
+    </button>
+  );
+}
+
+function Spacer({ h }) {
+  return <div style={{ height: h }} />;
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = {
+  barTrack: { width: "100%", height: 8, background: "#E0E8F0", borderRadius: 4, overflow: "hidden" },
+  barFill:  { height: "100%", borderRadius: 4 },
+  progressLabel: { fontSize: 13, color: "#888", margin: "6px 0 0", fontFamily: "sans-serif" },
+  introLabelRow: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  introLabel: { fontSize: 14, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: 0, fontFamily: "sans-serif" },
+  introCard:  { background: "#fff", border: "1.5px solid #D0D8E0", borderRadius: 12, padding: "28px 24px", textAlign: "center" },
+  introIcon:  { fontSize: 44, display: "block" },
+  introName:  { fontSize: 22, fontWeight: 700, color: "#1A3C5E", margin: 0, fontFamily: "'Georgia', serif" },
+  introDesc:  { fontSize: 16, color: "#555", lineHeight: 1.6, margin: 0, fontFamily: "sans-serif" },
+  introStat:  { fontSize: 14, color: "#9B2335", fontWeight: 600, margin: 0, fontFamily: "sans-serif" },
+  questionHeader:  { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  questionCounter: { fontSize: 14, color: "#888", margin: 0, fontFamily: "sans-serif" },
+  speakBtn:   { background: "none", border: "1.5px solid #D0D8E0", borderRadius: 8, padding: "4px 10px", fontSize: 18, cursor: "pointer", flexShrink: 0 },
+  questionBox:  { background: "#F0F4F8", border: "1.5px solid #B0C4D8", borderRadius: 10, padding: "18px 20px" },
+  questionText: { fontSize: 17, lineHeight: 1.7, color: "#1A3C5E", margin: 0, fontFamily: "sans-serif" },
+  optionsList:  { display: "flex", flexDirection: "column", gap: 10 },
+  optionBtn:    { width: "100%", padding: "16px 18px", fontSize: 16, lineHeight: 1.5, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 10, transition: "background 0.15s, border-color 0.15s" },
+  feedbackBox:  { border: "2px solid", borderRadius: 10, padding: "16px 18px" },
+  feedbackHeader:     { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  feedbackResult:     { fontSize: 17, fontWeight: 700, margin: 0, fontFamily: "sans-serif" },
+  feedbackExplanation:{ fontSize: 15, lineHeight: 1.65, color: "#333", margin: 0, fontFamily: "sans-serif" },
+  messageCard:      { background: "#fff", border: "1.5px solid #D0D8E0", borderRadius: 12, padding: "20px" },
+  messageMeta:      { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 },
+  messageMetaLabel: { fontSize: 13, color: "#888", fontFamily: "sans-serif", whiteSpace: "nowrap", paddingTop: 2 },
+  messageMetaValue: { fontSize: 13, color: "#333", fontFamily: "sans-serif", lineHeight: 1.5 },
+  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: 15, lineHeight: 1.7, color: "#333", fontFamily: "sans-serif", padding: "4px 6px", border: "none", borderRadius: 4, transition: "background 0.15s" },
+  flagReason:  { fontSize: 13, color: "#9B2335", margin: "4px 0 0 6px", lineHeight: 1.5, fontFamily: "sans-serif" },
+  hardHint:    { fontSize: 13, color: "#888", fontStyle: "italic", margin: 0, fontFamily: "sans-serif", textAlign: "center" },
+  resultsHeader:   { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  resultsTitle:    { fontSize: 26, fontWeight: 700, color: "#1A3C5E", margin: 0, fontFamily: "'Georgia', serif" },
+  overallScoreCard:{ background: "#F0F4F8", border: "1.5px solid #B0C4D8", borderRadius: 12, padding: "28px 24px", textAlign: "center" },
+  overallPct:      { fontSize: 52, fontWeight: 700, color: "#1A3C5E", margin: 0, fontFamily: "sans-serif" },
+  overallFraction: { fontSize: 16, color: "#555", margin: "4px 0 0", fontFamily: "sans-serif" },
+  overallMessage:  { fontSize: 15, lineHeight: 1.65, color: "#333", margin: 0, fontFamily: "sans-serif" },
+  breakdownTitle:  { fontSize: 17, fontWeight: 600, color: "#1A3C5E", margin: 0, fontFamily: "sans-serif" },
+  breakdownRow:    { marginBottom: 16 },
+  breakdownHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  breakdownName:   { fontSize: 15, color: "#333", fontFamily: "sans-serif" },
+  breakdownPct:    { fontSize: 15, fontWeight: 700, fontFamily: "sans-serif" },
+  printBtn: { width: "100%", padding: "14px 24px", fontSize: 16, fontWeight: 500, fontFamily: "sans-serif", background: "#fff", color: "#1A3C5E", border: "2px solid #1A3C5E", borderRadius: 10, cursor: "pointer" },
+  footer:   { fontSize: 13, color: "#999", textAlign: "center", margin: 0, fontFamily: "sans-serif", lineHeight: 1.6 },
+};
