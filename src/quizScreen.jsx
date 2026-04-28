@@ -505,10 +505,6 @@ export default function QuizScreen({
     const missed = allFlags.length - correctHits;
     setCurrentScamScore((s) => s + score);
     setAnswersRevealed(true);
-    // Only speak immediately if auto-read is off — same pattern as feedback
-    if (!getAutoRead()) {
-      speak(buildHardRevealScript(correctHits, allFlags.length, missed));
-    }
     for (const segment of hardContent.body) {
       if (!segment.isFlag) continue;
       await recordAnswer(sessionId, {
