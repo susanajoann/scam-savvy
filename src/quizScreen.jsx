@@ -273,8 +273,8 @@ export default function QuizScreen({
   scams,
   ageRange,
   sessionId,
-  startedAt,
   onPlayAgain,
+  onHome,
 }) {
   const [screen, setScreen]                 = useState("intro");
   const [scamIndex, setScamIndex]           = useState(0);
@@ -385,25 +385,20 @@ export default function QuizScreen({
 
   const handleCheckAnswer = async () => {
     if (!selectedOption || showFeedback) return;
-    const correct     = selectedOption.correct;
-    const startedAt   = new Date(questionStartTime.current).toISOString();
-    const finishedAt  = new Date().toISOString();
-    const timeTaken   = Math.round((Date.now() - questionStartTime.current) / 1000);
+    const correct    = selectedOption.correct;
+    const timeTaken  = Math.round((Date.now() - questionStartTime.current) / 1000);
     if (correct) setCurrentScamScore((s) => s + 1);
     setShowFeedback(true);
-    if (getAutoRead()) {
+    // Only speak immediately if auto-read is off.
+    // When auto-read is on, the useEffect watching showFeedback handles it
+    // after a short delay — speaking here too would cause double-speaking.
+    if (!getAutoRead()) {
       const correctOption = shuffledOptions.find(o => o.correct);
       speak(buildFeedbackScript(correct, currentQuestion.explanation, correctOption?.text ?? ""));
     }
     await recordAnswer(sessionId, {
-      scamId:     currentScam.id,
-      questionId: currentQuestion.id,
-      ageRange,
-      difficulty,
-      correct,
-      timeTaken,
-      startedAt,
-      finishedAt,
+      scamId: currentScam.id, questionId: currentQuestion.id,
+      ageRange, difficulty, correct, timeTaken,
     });
   };
 
@@ -423,8 +418,6 @@ export default function QuizScreen({
     const score          = Math.max(0, correctHits - falsePositives);
     const timeTaken      = Math.round((Date.now() - questionStartTime.current) / 1000);
     const missed         = allFlags.length - correctHits;
-    const startedAt  = new Date(questionStartTime.current).toISOString();
-    const finishedAt = new Date().toISOString();
     setCurrentScamScore((s) => s + score);
     setAnswersRevealed(true);
     // Only speak immediately if auto-read is off — same pattern as feedback
@@ -434,14 +427,8 @@ export default function QuizScreen({
     for (const segment of hardContent.body) {
       if (!segment.isFlag) continue;
       await recordAnswer(sessionId, {
-        scamId:     currentScam.id,
-        questionId: segment.id,
-        ageRange,
-        difficulty,
-        correct:    !!highlighted[segment.id],
-        timeTaken,
-        startedAt,
-        finishedAt,
+        scamId: currentScam.id, questionId: segment.id,
+        ageRange, difficulty, correct: !!highlighted[segment.id], timeTaken,
       });
     }
   };
@@ -466,7 +453,7 @@ export default function QuizScreen({
       const isLastScam = scamIndex + 1 >= scams.length;
       if (isLastScam) {
         const totalTime = Math.round((Date.now() - quizStartTime.current) / 1000);
-        await completeSession(sessionId, totalTime, ageRange, difficulty, startedAt);
+        await completeSession(sessionId, totalTime);
         setScreen("results");
       } else {
         setScamIndex((i) => i + 1);
@@ -485,8 +472,8 @@ export default function QuizScreen({
     if (!currentScam) return null;
     const isFirst = scamIndex === 0;
     return (
-      <Wrapper>
-        <ProgressBar current={scamIndex} total={scams.length} />
+      <Wrapper onHome={onHome}>
+        <ProgressBar scamIndex={scamIndex} totalScams={scams.length} questionIndex={0} totalQuestions={isHardMode ? 1 : currentScam[difficulty]?.length ?? 1} isHardMode={isHardMode} />
         <Spacer h={32} />
         <div style={styles.introLabelRow}>
           {/* TEXT_FIRST_UP / TEXT_NEXT_UP drive both display and speech */}
@@ -520,8 +507,8 @@ export default function QuizScreen({
   if (screen === "question" && !isHardMode) {
     if (!currentScam || !currentQuestion) return null;
     return (
-      <Wrapper>
-        <ProgressBar current={scamIndex} total={scams.length} />
+      <Wrapper onHome={onHome}>
+        <ProgressBar scamIndex={scamIndex} totalScams={scams.length} questionIndex={questionIndex} totalQuestions={questions.length} isHardMode={false} />
         <Spacer h={8} />
         <div style={styles.questionHeader}>
           <p style={styles.questionCounter}>
@@ -616,8 +603,8 @@ export default function QuizScreen({
     const totalFlags  = hardContent.body.filter((s) => s.isFlag).length;
     const foundSoFar  = hardContent.body.filter((s) => s.isFlag && highlighted[s.id]).length;
     return (
-      <Wrapper>
-        <ProgressBar current={scamIndex} total={scams.length} />
+      <Wrapper onHome={onHome}>
+        <ProgressBar scamIndex={scamIndex} totalScams={scams.length} questionIndex={0} totalQuestions={1} isHardMode={true} />
         <Spacer h={8} />
         <div style={styles.questionHeader}>
           <p style={styles.questionCounter}>
@@ -649,9 +636,10 @@ export default function QuizScreen({
                 background: senderHighlighted
                   ? answersRevealed ? hardContent.senderIsFlag ? "#FADADD" : "#D8F3DC" : "#FDE8D0"
                   : "transparent",
-                borderRadius: 4, padding: "2px 6px",
+                borderRadius: 4, padding: "4px 8px",
                 cursor: answersRevealed ? "default" : "pointer",
                 border: "none", textAlign: "left",
+                fontSize: 17,
               }}
             >
               {hardContent.from}
@@ -738,7 +726,7 @@ export default function QuizScreen({
     const totalQuestions = scamScores.reduce((sum, s) => sum + s.total, 0);
     const overallPct     = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
     return (
-      <Wrapper>
+      <Wrapper onHome={onHome}>
         <div style={styles.resultsHeader}>
           {/* TEXT_QUIZ_COMPLETE drives both display and speech */}
           <p style={styles.resultsTitle}>{TEXT_QUIZ_COMPLETE}</p>
@@ -805,23 +793,104 @@ function shuffleArray(array) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Wrapper({ children }) {
+function Wrapper({ children, onHome }) {
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "32px 24px 60px", fontFamily: "'Georgia', serif" }}>
-      {children}
+    <div style={{
+      width: "100%",
+      maxWidth: "100vw",
+      boxSizing: "border-box",
+      fontFamily: "'Georgia', serif",
+    }}>
+      {/* Persistent ScamSavvy logo bar — clicking returns to home screen */}
+      <div style={{
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "16px clamp(20px, 5vw, 64px) 14px",
+        borderBottom: "1.5px solid #E8E0F5",
+        marginBottom: 4,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <button
+          onClick={onHome}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: onHome ? "pointer" : "default",
+            padding: 0,
+            margin: 0,
+            lineHeight: 1,
+          }}
+          title="Return to home screen"
+          aria-label="Return to home screen"
+        >
+          <p style={{
+            fontSize: "clamp(22px, 3vw, 28px)",
+            fontWeight: 700,
+            margin: 0,
+            fontFamily: "Georgia, serif",
+            letterSpacing: "-0.5px",
+            lineHeight: 1,
+          }}>
+            <span style={{ color: "#3D1580" }}>Scam</span>
+            <span style={{ color: "#C8952A" }}>Savvy</span>
+          </p>
+        </button>
+      </div>
+      {/* Page content */}
+      <div style={{ padding: "24px clamp(20px, 5vw, 64px) 60px" }}>
+        {children}
+      </div>
     </div>
   );
 }
 
-function ProgressBar({ current, total }) {
-  const pct = Math.round((current / total) * 100);
+function ProgressBar({ scamIndex, totalScams, questionIndex, totalQuestions, isHardMode }) {
+  // Guard against undefined/zero values
+  const safeScamIndex     = scamIndex     ?? 0;
+  const safeTotalScams    = totalScams    ?? 1;
+  const safeQuestionIndex = questionIndex ?? 0;
+  const safeQPerScam      = totalQuestions && totalQuestions > 0 ? totalQuestions : 1;
+
+  const totalAllQuestions  = safeTotalScams * safeQPerScam;
+  const completedQuestions = (safeScamIndex * safeQPerScam) + safeQuestionIndex;
+  const pct = Math.round((completedQuestions / totalAllQuestions) * 100);
+
+  // Milestone positions — one tick per completed scam topic
+  const milestones = Array.from({ length: safeTotalScams - 1 }, (_, i) => 
+    Math.round(((i + 1) / safeTotalScams) * 100)
+  );
+
   return (
     <div>
-      <div style={styles.barTrack}>
-        <div style={{ ...styles.barFill, width: `${pct}%`, background: "#3D1580", transition: "width 0.4s ease" }} />
+      <div style={{ ...styles.barTrack, position: "relative" }}>
+        {/* Filled progress */}
+        <div style={{
+          ...styles.barFill,
+          width: `${pct}%`,
+          background: "#3D1580",
+          transition: "width 0.4s ease",
+        }} />
+        {/* Topic milestone ticks */}
+        {milestones.map((pos, i) => (
+          <div key={i} style={{
+            position: "absolute",
+            top: 0,
+            left: `${pos}%`,
+            width: 2,
+            height: "100%",
+            background: pos <= pct ? "#C8952A" : "#C9B8E8",
+            transform: "translateX(-50%)",
+          }} />
+        ))}
       </div>
-      {/* TEXT_TOPIC_OF drives both display and speech */}
-      <p style={styles.progressLabel}>{TEXT_TOPIC_OF} {current} of {total}</p>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+        <p style={styles.progressLabel}>
+          {TEXT_TOPIC_OF} {safeScamIndex + 1} of {safeTotalScams} — Question {safeQuestionIndex + 1} of {safeQPerScam}
+        </p>
+        <p style={styles.progressLabel}>{pct}%</p>
+      </div>
     </div>
   );
 }
@@ -837,10 +906,18 @@ function SpeakButton({ onClick, label }) {
 function BigButton({ children, onClick, disabled }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      width: "100%", padding: "18px 24px", fontSize: 18, fontWeight: 600,
-      fontFamily: "sans-serif", background: disabled ? "#D0D8E0" : "#3D1580",
-      color: disabled ? "#888" : "#fff", border: "none", borderRadius: 10,
-      cursor: disabled ? "not-allowed" : "pointer", transition: "background 0.2s",
+      width: "100%",
+      padding: "20px 24px",
+      fontSize: "clamp(17px, 2.5vw, 20px)",
+      fontWeight: 600,
+      fontFamily: "sans-serif",
+      background: disabled ? "#D0D8E0" : "#3D1580",
+      color: disabled ? "#888" : "#fff",
+      border: "none",
+      borderRadius: 12,
+      cursor: disabled ? "not-allowed" : "pointer",
+      transition: "background 0.2s",
+      lineHeight: 1.4,
     }}>
       {children}
     </button>
@@ -854,56 +931,56 @@ function Spacer({ h }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = {
-  // Progress bar — purple theme
-  barTrack: { width: "100%", height: 6, background: "#E8E0F5", borderRadius: 4, overflow: "hidden" },
-  barFill:  { height: "100%", borderRadius: 4 },
-  progressLabel: { fontSize: 12, color: "#7A5FAA", margin: "5px 0 0", fontFamily: "sans-serif" },
+  // Progress bar — purple theme, taller for visibility
+  barTrack: { width: "100%", height: 10, background: "#E8E0F5", borderRadius: 5, overflow: "hidden" },
+  barFill:  { height: "100%", borderRadius: 5 },
+  progressLabel: { fontSize: 14, color: "#7A5FAA", margin: "6px 0 0", fontFamily: "sans-serif" },
 
-  // Intro screen
+  // Intro screen — larger for older eyes
   introLabelRow: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  introLabel: { fontSize: 13, fontWeight: 600, color: "#7A5FAA", textTransform: "uppercase", letterSpacing: "1px", margin: 0, fontFamily: "sans-serif" },
-  introCard:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 12, padding: "24px 22px", textAlign: "center" },
-  introIcon:  { fontSize: 38, display: "block" },
-  introName:  { fontSize: 20, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
-  introDesc:  { fontSize: 15, color: "#555", lineHeight: 1.6, margin: 0, fontFamily: "sans-serif" },
-  introStat:  { fontSize: 13, color: "#9B2335", fontWeight: 600, margin: 0, fontFamily: "sans-serif" },
+  introLabel: { fontSize: 14, fontWeight: 600, color: "#7A5FAA", textTransform: "uppercase", letterSpacing: "1px", margin: 0, fontFamily: "sans-serif" },
+  introCard:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "32px 28px", textAlign: "center" },
+  introIcon:  { fontSize: 48, display: "block" },
+  introName:  { fontSize: 24, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
+  introDesc:  { fontSize: 18, color: "#444", lineHeight: 1.7, margin: 0, fontFamily: "sans-serif" },
+  introStat:  { fontSize: 15, color: "#9B2335", fontWeight: 600, margin: 0, fontFamily: "sans-serif" },
 
-  // Question screen
+  // Question screen — generous sizing throughout
   questionHeader:  { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  questionCounter: { fontSize: 13, color: "#7A5FAA", margin: 0, fontFamily: "sans-serif" },
-  speakBtn:   { background: "none", border: "1.5px solid #C9B8E8", borderRadius: 8, padding: "4px 10px", fontSize: 16, cursor: "pointer", flexShrink: 0 },
-  // Question box — soft purple tint, very readable dark text
-  questionBox:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 10, padding: "16px 18px" },
-  questionText: { fontSize: 16, lineHeight: 1.75, color: "#1A0A3C", margin: 0, fontFamily: "sans-serif" },
-  optionsList:  { display: "flex", flexDirection: "column", gap: 9 },
-  // Options — white with purple border by default, large text for readability
-  optionBtn:    { width: "100%", padding: "14px 16px", fontSize: 15, lineHeight: 1.5, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 10, transition: "background 0.15s, border-color 0.15s" },
-  feedbackBox:  { border: "2px solid", borderRadius: 10, padding: "14px 16px" },
+  questionCounter: { fontSize: 15, color: "#7A5FAA", margin: 0, fontFamily: "sans-serif" },
+  speakBtn:   { background: "none", border: "1.5px solid #C9B8E8", borderRadius: 8, padding: "6px 12px", fontSize: 20, cursor: "pointer", flexShrink: 0 },
+  // Question box — large, clear, well-padded
+  questionBox:  { background: "#FAF7FF", border: "2px solid #C9B8E8", borderRadius: 12, padding: "28px 28px" },
+  questionText: { fontSize: "clamp(18px, 2.5vw, 21px)", lineHeight: 1.85, color: "#1A0A3C", margin: 0, fontFamily: "sans-serif" },
+  optionsList:  { display: "flex", flexDirection: "column", gap: 12 },
+  // Options — large tap targets, clear text
+  optionBtn:    { width: "100%", padding: "20px 22px", fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.55, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 12, transition: "background 0.15s, border-color 0.15s" },
+  feedbackBox:  { border: "2px solid", borderRadius: 12, padding: "20px 22px" },
   feedbackHeader:     { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  feedbackResult:     { fontSize: 16, fontWeight: 700, margin: 0, fontFamily: "sans-serif" },
-  feedbackExplanation:{ fontSize: 14, lineHeight: 1.65, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
+  feedbackResult:     { fontSize: 19, fontWeight: 700, margin: 0, fontFamily: "sans-serif" },
+  feedbackExplanation:{ fontSize: "clamp(16px, 2vw, 18px)", lineHeight: 1.75, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
 
-  // Hard mode message card
-  messageCard:      { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 12, padding: "18px" },
-  messageMeta:      { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 },
-  messageMetaLabel: { fontSize: 12, color: "#7A5FAA", fontFamily: "sans-serif", whiteSpace: "nowrap", paddingTop: 2 },
-  messageMetaValue: { fontSize: 13, color: "#1A0A3C", fontFamily: "sans-serif", lineHeight: 1.5 },
-  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: 14, lineHeight: 1.75, color: "#1A0A3C", fontFamily: "sans-serif", padding: "4px 6px", border: "none", borderRadius: 4, transition: "background 0.15s" },
-  flagReason:  { fontSize: 12, color: "#7A1A2E", margin: "4px 0 0 6px", lineHeight: 1.5, fontFamily: "sans-serif" },
-  hardHint:    { fontSize: 12, color: "#7A5FAA", fontStyle: "italic", margin: 0, fontFamily: "sans-serif", textAlign: "center" },
+  // Hard mode message card — readable transcript
+  messageCard:      { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "24px" },
+  messageMeta:      { display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 },
+  messageMetaLabel: { fontSize: 17, color: "#7A5FAA", fontFamily: "sans-serif", fontWeight: 600, whiteSpace: "nowrap", paddingTop: 2 },
+  messageMetaValue: { fontSize: 17, color: "#1A0A3C", fontFamily: "sans-serif", lineHeight: 1.6 },
+  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: "clamp(16px, 2vw, 18px)", lineHeight: 1.85, color: "#1A0A3C", fontFamily: "sans-serif", padding: "8px 10px", border: "none", borderRadius: 6, transition: "background 0.15s" },
+  flagReason:  { fontSize: 16, color: "#7A1A2E", margin: "8px 0 0 10px", lineHeight: 1.65, fontFamily: "sans-serif" },
+  hardHint:    { fontSize: 16, color: "#7A5FAA", fontStyle: "italic", margin: 0, fontFamily: "sans-serif", textAlign: "center" },
 
   // Results screen
   resultsHeader:   { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  resultsTitle:    { fontSize: 24, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
-  overallScoreCard:{ background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 12, padding: "24px 22px", textAlign: "center" },
-  overallPct:      { fontSize: 48, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "sans-serif" },
-  overallFraction: { fontSize: 15, color: "#7A5FAA", margin: "4px 0 0", fontFamily: "sans-serif" },
-  overallMessage:  { fontSize: 14, lineHeight: 1.65, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
-  breakdownTitle:  { fontSize: 16, fontWeight: 600, color: "#3D1580", margin: 0, fontFamily: "sans-serif" },
-  breakdownRow:    { marginBottom: 14 },
-  breakdownHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  breakdownName:   { fontSize: 15, color: "#333", fontFamily: "sans-serif" },
-  breakdownPct:    { fontSize: 15, fontWeight: 700, fontFamily: "sans-serif" },
-  printBtn: { width: "100%", padding: "14px 24px", fontSize: 16, fontWeight: 500, fontFamily: "sans-serif", background: "#fff", color: "#1A3C5E", border: "2px solid #1A3C5E", borderRadius: 10, cursor: "pointer" },
-  footer:   { fontSize: 13, color: "#999", textAlign: "center", margin: 0, fontFamily: "sans-serif", lineHeight: 1.6 },
+  resultsTitle:    { fontSize: 28, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
+  overallScoreCard:{ background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "28px 24px", textAlign: "center" },
+  overallPct:      { fontSize: 56, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "sans-serif" },
+  overallFraction: { fontSize: 17, color: "#7A5FAA", margin: "4px 0 0", fontFamily: "sans-serif" },
+  overallMessage:  { fontSize: 17, lineHeight: 1.75, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
+  breakdownTitle:  { fontSize: 18, fontWeight: 600, color: "#3D1580", margin: 0, fontFamily: "sans-serif" },
+  breakdownRow:    { marginBottom: 18 },
+  breakdownHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  breakdownName:   { fontSize: 16, color: "#333", fontFamily: "sans-serif" },
+  breakdownPct:    { fontSize: 16, fontWeight: 700, fontFamily: "sans-serif" },
+  printBtn: { width: "100%", padding: "18px 24px", fontSize: 17, fontWeight: 500, fontFamily: "sans-serif", background: "#fff", color: "#3D1580", border: "2px solid #3D1580", borderRadius: 12, cursor: "pointer" },
+  footer:   { fontSize: 14, color: "#999", textAlign: "center", margin: 0, fontFamily: "sans-serif", lineHeight: 1.6 },
 };

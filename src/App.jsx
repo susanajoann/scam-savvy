@@ -1,48 +1,108 @@
-
 // ─────────────────────────────────────────────────────────────────────────────
 // App.jsx
 //
-// Root component. Manages which top-level screen is shown:
-//   "home" — the HomeScreen (landing + difficulty selector)
-//   "quiz" — the QuizScreen (the actual quiz)
+// Root component. Uses React Router for two routes:
+//   /           — the quiz app (HomeScreen + QuizScreen)
+//   /analytics  — the research analytics dashboard
 //
-// When the user taps "Start quiz" on the home screen, onStart() is called
-// with everything the quiz needs. App stores those values in state and
-// switches to the quiz screen.
-//
-// When the user taps "Play again" on the results screen, onPlayAgain()
-// resets everything back to the home screen.
+// A persistent nav bar appears at the top of every page with tabs to switch
+// between the quiz and the analytics dashboard.
 // ─────────────────────────────────────────────────────────────────────────────
- 
+
 import { useState } from "react";
-import HomeScreen from "./homeScreen";
-import QuizScreen from "./quizScreen";
- 
-export default function App() {
-  // "home" | "quiz"
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import HomeScreen from "./HomeScreen";
+import QuizScreen from "./QuizScreen";
+import AnalyticsPage from "./AnalyticsPage";
+
+// ─── Nav bar ─────────────────────────────────────────────────────────────────
+
+function NavBar() {
+  return (
+    <nav style={{
+      width: "100%",
+      boxSizing: "border-box",
+      background: "#fff",
+      borderBottom: "2px solid #E8E0F5",
+      padding: "0 clamp(16px, 5vw, 64px)",
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      position: "sticky",
+      top: 0,
+      zIndex: 100,
+    }}>
+      {/* Logo */}
+      <NavLink to="/" style={{ textDecoration: "none", marginRight: 16 }}>
+        <span style={{
+          fontSize: "clamp(18px, 2.5vw, 22px)",
+          fontWeight: 700,
+          fontFamily: "Georgia, serif",
+          letterSpacing: "-0.5px",
+        }}>
+          <span style={{ color: "#3D1580" }}>Scam</span>
+          <span style={{ color: "#C8952A" }}>Savvy</span>
+        </span>
+      </NavLink>
+
+      {/* Quiz tab */}
+      <NavLink
+        to="/"
+        end
+        style={({ isActive }) => ({
+          padding: "16px 20px",
+          fontSize: "clamp(14px, 1.8vw, 16px)",
+          fontFamily: "sans-serif",
+          fontWeight: 600,
+          color: isActive ? "#3D1580" : "#7A5FAA",
+          textDecoration: "none",
+          borderBottom: isActive ? "3px solid #3D1580" : "3px solid transparent",
+          transition: "color 0.15s, border-color 0.15s",
+        })}
+      >
+        Quiz
+      </NavLink>
+
+      {/* Analytics tab */}
+      <NavLink
+        to="/analytics"
+        style={({ isActive }) => ({
+          padding: "16px 20px",
+          fontSize: "clamp(14px, 1.8vw, 16px)",
+          fontFamily: "sans-serif",
+          fontWeight: 600,
+          color: isActive ? "#3D1580" : "#7A5FAA",
+          textDecoration: "none",
+          borderBottom: isActive ? "3px solid #C8952A" : "3px solid transparent",
+          transition: "color 0.15s, border-color 0.15s",
+        })}
+      >
+        Research Data
+      </NavLink>
+    </nav>
+  );
+}
+
+// ─── Quiz flow (home + quiz screens) ─────────────────────────────────────────
+
+function QuizFlow() {
   const [screen, setScreen] = useState("home");
- 
-  // Values passed from HomeScreen into QuizScreen when a quiz starts
   const [quizProps, setQuizProps] = useState(null);
- 
-  // Called by HomeScreen when the user taps "Start quiz".
-  // Stores everything the quiz needs and switches to the quiz screen.
+
   const handleStart = (difficulty, shuffledScams, ageRange, sessionId, startedAt) => {
     setQuizProps({ difficulty, shuffledScams, ageRange, sessionId, startedAt });
     setScreen("quiz");
   };
- 
-  // Called by QuizScreen when the user taps "Play again".
-  // Clears quiz state and returns to the home screen.
+
   const handlePlayAgain = () => {
     setQuizProps(null);
     setScreen("home");
   };
- 
+
   if (screen === "home") {
     return <HomeScreen onStart={handleStart} />;
   }
- 
+
   if (screen === "quiz" && quizProps) {
     return (
       <QuizScreen
@@ -52,9 +112,24 @@ export default function App() {
         sessionId={quizProps.sessionId}
         startedAt={quizProps.startedAt}
         onPlayAgain={handlePlayAgain}
+        onHome={handlePlayAgain}
       />
     );
   }
- 
+
   return null;
+}
+
+// ─── Root app ─────────────────────────────────────────────────────────────────
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <NavBar />
+      <Routes>
+        <Route path="/" element={<QuizFlow />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }

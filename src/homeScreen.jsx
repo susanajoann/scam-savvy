@@ -390,9 +390,9 @@ export default function HomeScreen({ onStart }) {
     const handleStart = async () => {
       if (!selectedDifficulty || starting) return;
       setStarting(true);
-      const { sessionId, startedAt } = await createSession(selectedDifficulty, ageRange);
+      const sessionId     = await createSession(selectedDifficulty, ageRange);
       const shuffledScams = shuffle(SCAMS);
-      onStart(selectedDifficulty, shuffledScams, ageRange, sessionId, startedAt);
+      onStart(selectedDifficulty, shuffledScams, ageRange, sessionId);
     };
 
     return (
@@ -518,25 +518,22 @@ function Logo({ small }) {
   return (
     <div>
       {small ? (
-        // Small version — just the wordmark text, no tagline
         <p style={{
-          fontSize: 24,
+          fontSize: "clamp(20px, 3vw, 26px)",
           fontWeight: 700,
-          color: "#3D1580",
           margin: 0,
           fontFamily: "Georgia, serif",
           letterSpacing: "-0.5px",
+          lineHeight: 1,
         }}>
           <span style={{ color: "#3D1580" }}>Scam</span>
           <span style={{ color: "#C8952A" }}>Savvy</span>
         </p>
       ) : (
-        // Full version — large wordmark with tagline and gold rule
         <div>
           <p style={{
-            fontSize: 48,
+            fontSize: "clamp(36px, 5vw, 52px)",
             fontWeight: 700,
-            color: "#3D1580",
             margin: 0,
             fontFamily: "Georgia, serif",
             letterSpacing: "-1px",
@@ -549,17 +546,17 @@ function Logo({ small }) {
             height: 2,
             background: "#C8952A",
             opacity: 0.5,
-            margin: "8px 0 6px",
+            margin: "10px 0 7px",
             width: "100%",
           }} />
           <p style={{
-            fontSize: 12,
+            fontSize: "clamp(11px, 1.5vw, 13px)",
             color: "#7A5FAA",
             margin: 0,
             fontFamily: "sans-serif",
             letterSpacing: "2.5px",
           }}>
-            KNOW THE SCAM BEFORE IT KNOWS YOU
+            {TEXT_APP_SUBTITLE.toUpperCase()}
           </p>
         </div>
       )}
@@ -597,16 +594,17 @@ function BigButton({ children, onClick, disabled }) {
       disabled={disabled}
       style={{
         width: "100%",
-        padding: "18px 24px",
-        fontSize: 18,
+        padding: "22px 24px",
+        fontSize: "clamp(17px, 2.5vw, 20px)",
         fontWeight: 600,
         fontFamily: "sans-serif",
         background: disabled ? "#D0D8E0" : "#3D1580",
         color: disabled ? "#888" : "#fff",
         border: "none",
-        borderRadius: 10,
+        borderRadius: 12,
         cursor: disabled ? "not-allowed" : "pointer",
         transition: "background 0.2s",
+        lineHeight: 1.4,
       }}
     >
       {children}
@@ -629,44 +627,46 @@ const styles = {
   homeHeaderLeft: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: 8,
   },
   // Row holding the speed buttons and the 🔊 button together
   speechControls: {
     display: "flex",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     flexShrink: 0,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   },
-  // Individual speed selector button (Slow / Normal / Fast)
+  // Individual speed selector button — larger for older users
   speedBtn: {
-    padding: "5px 10px",
-    fontSize: 13,
+    padding: "8px 14px",
+    fontSize: 15,
     fontWeight: 600,
     border: "1.5px solid",
-    borderRadius: 6,
+    borderRadius: 8,
     cursor: "pointer",
     fontFamily: "sans-serif",
     transition: "background 0.15s, color 0.15s",
   },
   speakBtn: {
     background: "none",
-    border: "1.5px solid #D0D8E0",
+    border: "1.5px solid #C9B8E8",
     borderRadius: 8,
-    padding: "6px 12px",
-    fontSize: 20,
+    padding: "8px 14px",
+    fontSize: 22,
     cursor: "pointer",
     flexShrink: 0,
   },
   tagline: {
-    fontSize: 19,
-    lineHeight: 1.75,
+    fontSize: "clamp(18px, 2.5vw, 22px)",
+    lineHeight: 1.8,
     color: "#333",
     margin: 0,
     fontFamily: "sans-serif",
   },
   label: {
-    fontSize: 18,
+    fontSize: "clamp(18px, 2.5vw, 22px)",
     fontWeight: 600,
     color: "#3D1580",
     display: "block",
@@ -675,24 +675,24 @@ const styles = {
     margin: 0,
   },
   caption: {
-    fontSize: 15,
-    color: "#666",
+    fontSize: "clamp(15px, 2vw, 17px)",
+    color: "#555",
     margin: 0,
-    lineHeight: 1.6,
+    lineHeight: 1.7,
     fontFamily: "sans-serif",
   },
   ageGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
-    gap: 10,
+    gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
+    gap: 12,
   },
   ageBtn: {
     flex: "1 1 auto",
-    padding: "12px 10px",
-    fontSize: 15,
+    padding: "16px 12px",
+    fontSize: "clamp(15px, 2vw, 17px)",
     fontWeight: 600,
     border: "2px solid #3D1580",
-    borderRadius: 8,
+    borderRadius: 10,
     cursor: "pointer",
     fontFamily: "sans-serif",
     textAlign: "center",
@@ -701,19 +701,19 @@ const styles = {
   noticeBox: {
     background: "#FAF7FF",
     border: "1.5px solid #C9B8E8",
-    borderRadius: 10,
-    padding: "22px 24px",
+    borderRadius: 12,
+    padding: "24px 28px",
   },
   noticeTitle: {
-    fontSize: 16,
+    fontSize: "clamp(17px, 2vw, 19px)",
     fontWeight: 700,
     color: "#3D1580",
     margin: 0,
     fontFamily: "sans-serif",
   },
   noticeBody: {
-    fontSize: 15,
-    lineHeight: 1.7,
+    fontSize: "clamp(15px, 2vw, 17px)",
+    lineHeight: 1.8,
     color: "#333",
     margin: 0,
     fontFamily: "sans-serif",
@@ -721,23 +721,23 @@ const styles = {
   checkLabel: {
     display: "flex",
     alignItems: "flex-start",
-    gap: 14,
-    fontSize: 16,
+    gap: 16,
+    fontSize: "clamp(16px, 2vw, 18px)",
     color: "#3D1580",
     cursor: "pointer",
     fontFamily: "sans-serif",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    marginTop: 1,
+    width: 28,
+    height: 28,
+    marginTop: 2,
     cursor: "pointer",
     flexShrink: 0,
     accentColor: "#3D1580",
   },
   hint: {
-    fontSize: 14,
+    fontSize: "clamp(14px, 1.8vw, 16px)",
     color: "#888",
     textAlign: "center",
     margin: 0,
@@ -745,29 +745,29 @@ const styles = {
     fontStyle: "italic",
   },
   ageTag: {
-    fontSize: 13,
+    fontSize: "clamp(13px, 1.8vw, 15px)",
     fontWeight: 600,
     color: "#3D1580",
     background: "#EDE8F8",
     border: "1.5px solid #C9B8E8",
     borderRadius: 20,
-    padding: "4px 12px",
+    padding: "5px 14px",
     fontFamily: "sans-serif",
     alignSelf: "flex-start",
   },
   diffList: {
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 14,
   },
   diffCard: {
     width: "100%",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "18px 20px",
+    padding: "22px 24px",
     border: "solid",
-    borderRadius: 10,
+    borderRadius: 12,
     cursor: "pointer",
     textAlign: "left",
     transition: "background 0.15s, border-color 0.15s",
@@ -776,26 +776,26 @@ const styles = {
   diffCardInner: {
     display: "flex",
     flexDirection: "column",
-    gap: 4,
+    gap: 6,
   },
   diffLabel: {
-    fontSize: 18,
+    fontSize: "clamp(19px, 2.5vw, 22px)",
     fontWeight: 700,
     fontFamily: "sans-serif",
   },
   diffDesc: {
-    fontSize: 14,
+    fontSize: "clamp(15px, 2vw, 17px)",
     fontFamily: "sans-serif",
     color: "#555",
-    lineHeight: 1.4,
+    lineHeight: 1.5,
   },
   diffCheck: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: 700,
     fontFamily: "sans-serif",
   },
   footer: {
-    fontSize: 13,
+    fontSize: "clamp(13px, 1.8vw, 15px)",
     color: "#999",
     lineHeight: 1.6,
     textAlign: "center",
