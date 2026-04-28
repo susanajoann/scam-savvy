@@ -126,10 +126,15 @@ let _lastSpokenText = "";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
+  // If already speaking the same text, stop it (toggle behaviour)
+  if (window.speechSynthesis.speaking && _lastSpokenText === text) {
+    window.speechSynthesis.cancel();
+    _lastSpokenText = "";
+    return;
+  }
   window.speechSynthesis.cancel();
   // Remember what was spoken so speed changes can restart it
   _lastSpokenText = text;
-
   // Split at sentence-ending punctuation to create natural pauses.
   const chunks = text
     .split(/(?<=[.!?])\s+/)
@@ -152,7 +157,6 @@ function speak(text) {
 
 // Tracks the last text spoken so speed changes can restart it at the new rate.
 // Module-level so it persists across re-renders without a ref.
-
 
 function trackAndSpeak(text) {
   _lastSpokenText = text;
@@ -623,6 +627,8 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: 12,
   },
   homeHeaderLeft: {
     display: "flex",
@@ -633,21 +639,23 @@ const styles = {
   speechControls: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     flexShrink: 0,
     flexWrap: "wrap",
     justifyContent: "flex-end",
+    maxWidth: "60%",
   },
-  // Individual speed selector button — larger for older users
+  // Individual speed selector button
   speedBtn: {
-    padding: "8px 14px",
-    fontSize: 15,
+    padding: "7px 12px",
+    fontSize: "clamp(13px, 3vw, 15px)",
     fontWeight: 600,
     border: "1.5px solid",
     borderRadius: 8,
     cursor: "pointer",
     fontFamily: "sans-serif",
     transition: "background 0.15s, color 0.15s",
+    whiteSpace: "nowrap",
   },
   speakBtn: {
     background: "none",
@@ -683,13 +691,13 @@ const styles = {
   },
   ageGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
-    gap: 12,
+    gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))",
+    gap: 10,
   },
   ageBtn: {
     flex: "1 1 auto",
-    padding: "16px 12px",
-    fontSize: "clamp(15px, 2vw, 17px)",
+    padding: "clamp(10px, 3vw, 16px) 8px",
+    fontSize: "clamp(13px, 3.5vw, 16px)",
     fontWeight: 600,
     border: "2px solid #3D1580",
     borderRadius: 10,

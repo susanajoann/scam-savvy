@@ -95,6 +95,12 @@ let _lastSpokenText = "";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
+  // If already speaking the same text, stop it (toggle behaviour)
+  if (window.speechSynthesis.speaking && _lastSpokenText === text) {
+    window.speechSynthesis.cancel();
+    _lastSpokenText = "";
+    return;
+    }
   window.speechSynthesis.cancel();
   // Remember what was spoken so speed changes can restart it
   _lastSpokenText = text;
@@ -939,7 +945,7 @@ const styles = {
   // Intro screen — larger for older eyes
   introLabelRow: { display: "flex", justifyContent: "space-between", alignItems: "center" },
   introLabel: { fontSize: 14, fontWeight: 600, color: "#7A5FAA", textTransform: "uppercase", letterSpacing: "1px", margin: 0, fontFamily: "sans-serif" },
-  introCard:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "32px 28px", textAlign: "center" },
+  introCard:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "clamp(20px, 4vw, 32px) clamp(16px, 4vw, 28px)", textAlign: "center" },
   introIcon:  { fontSize: 48, display: "block" },
   introName:  { fontSize: 24, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
   introDesc:  { fontSize: 18, color: "#444", lineHeight: 1.7, margin: 0, fontFamily: "sans-serif" },
@@ -950,22 +956,22 @@ const styles = {
   questionCounter: { fontSize: 15, color: "#7A5FAA", margin: 0, fontFamily: "sans-serif" },
   speakBtn:   { background: "none", border: "1.5px solid #C9B8E8", borderRadius: 8, padding: "6px 12px", fontSize: 20, cursor: "pointer", flexShrink: 0 },
   // Question box — large, clear, well-padded
-  questionBox:  { background: "#FAF7FF", border: "2px solid #C9B8E8", borderRadius: 12, padding: "28px 28px" },
+  questionBox:  { background: "#FAF7FF", border: "2px solid #C9B8E8", borderRadius: 12, padding: "clamp(16px, 4vw, 28px)" },
   questionText: { fontSize: "clamp(18px, 2.5vw, 21px)", lineHeight: 1.85, color: "#1A0A3C", margin: 0, fontFamily: "sans-serif" },
   optionsList:  { display: "flex", flexDirection: "column", gap: 12 },
   // Options — large tap targets, clear text
-  optionBtn:    { width: "100%", padding: "20px 22px", fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.55, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 12, transition: "background 0.15s, border-color 0.15s" },
-  feedbackBox:  { border: "2px solid", borderRadius: 12, padding: "20px 22px" },
+  optionBtn:    { width: "100%", padding: "clamp(14px, 3vw, 20px) clamp(14px, 3vw, 22px)", fontSize: "clamp(15px, 3.5vw, 18px)", lineHeight: 1.6, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 12, transition: "background 0.15s, border-color 0.15s", wordBreak: "break-word", boxSizing: "border-box" },
+  feedbackBox:  { border: "2px solid", borderRadius: 12, padding: "clamp(14px, 3vw, 20px) clamp(14px, 3vw, 22px)" },
   feedbackHeader:     { display: "flex", justifyContent: "space-between", alignItems: "center" },
   feedbackResult:     { fontSize: 19, fontWeight: 700, margin: 0, fontFamily: "sans-serif" },
   feedbackExplanation:{ fontSize: "clamp(16px, 2vw, 18px)", lineHeight: 1.75, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
 
   // Hard mode message card — readable transcript
-  messageCard:      { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "24px" },
-  messageMeta:      { display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 },
-  messageMetaLabel: { fontSize: 17, color: "#7A5FAA", fontFamily: "sans-serif", fontWeight: 600, whiteSpace: "nowrap", paddingTop: 2 },
-  messageMetaValue: { fontSize: 17, color: "#1A0A3C", fontFamily: "sans-serif", lineHeight: 1.6 },
-  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: "clamp(16px, 2vw, 18px)", lineHeight: 1.85, color: "#1A0A3C", fontFamily: "sans-serif", padding: "8px 10px", border: "none", borderRadius: 6, transition: "background 0.15s" },
+  messageCard:      { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 14, padding: "clamp(14px, 3vw, 24px)" },
+  messageMeta:      { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" },
+  messageMetaLabel: { fontSize: "clamp(15px, 3.5vw, 17px)", color: "#7A5FAA", fontFamily: "sans-serif", fontWeight: 600, paddingTop: 2 },
+  messageMetaValue: { fontSize: "clamp(15px, 3.5vw, 17px)", color: "#1A0A3C", fontFamily: "sans-serif", lineHeight: 1.6, wordBreak: "break-word" },
+  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: "clamp(15px, 3.5vw, 18px)", lineHeight: 1.85, color: "#1A0A3C", fontFamily: "sans-serif", padding: "8px 10px", border: "none", borderRadius: 6, transition: "background 0.15s", wordBreak: "break-word", boxSizing: "border-box" },
   flagReason:  { fontSize: 16, color: "#7A1A2E", margin: "8px 0 0 10px", lineHeight: 1.65, fontFamily: "sans-serif" },
   hardHint:    { fontSize: 16, color: "#7A5FAA", fontStyle: "italic", margin: 0, fontFamily: "sans-serif", textAlign: "center" },
 
