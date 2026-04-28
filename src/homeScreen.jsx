@@ -292,9 +292,8 @@ export default function HomeScreen({ onStart }) {
 
     return (
       <Wrapper>
-        {/* Header row — logo, speed selector, and 🔊 button */}
+        {/* Header row — audio controls only, logo is in NavBar */}
         <div style={styles.headerRow}>
-          <Logo />
           <div style={styles.audioWrapper}>
             {/* Single 🔊 button — tapping expands speed/auto controls */}
             <button
@@ -450,12 +449,9 @@ export default function HomeScreen({ onStart }) {
 
     return (
       <Wrapper>
-        {/* Header — logo + age pill, speed selector + 🔊 */}
+        {/* Header — age pill + audio controls, logo is in NavBar */}
         <div style={styles.headerRow}>
-          <div style={styles.homeHeaderLeft}>
-            <Logo small />
-            <span style={styles.ageTag}>{ageRange}</span>
-          </div>
+          <span style={styles.ageTag}>{ageRange}</span>
           <div style={styles.audioWrapper}>
             <button
               onClick={() => setAudioOpen((o) => !o)}

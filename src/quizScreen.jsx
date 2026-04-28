@@ -339,8 +339,14 @@ export default function QuizScreen({
       text = buildIntroScript(currentScam, isFirst, isHardMode);
     }
 
-    if (screen === "question" && !isHardMode && currentQuestion) {
+    if (
+      screen === "question" &&
+      !isHardMode &&
+      currentQuestion &&
+      shuffledOptions.length > 0
+    ) {
       // buildQuestionScript reads from currentQuestion.question and options
+      // Only fires once shuffledOptions has been populated
       text = buildQuestionScript(currentQuestion, shuffledOptions);
     }
 
@@ -353,7 +359,7 @@ export default function QuizScreen({
     if (!text) return;
     const timer = setTimeout(() => speak(text), 1500);
     return () => clearTimeout(timer);
-  }, [screen, scamIndex, questionIndex]);
+  }, [screen, scamIndex, questionIndex, shuffledOptions.length]);
 
   // Auto-read: speak feedback automatically after the user checks an answer
   useEffect(() => {
