@@ -51,11 +51,11 @@ const TEXT_RESULT_GOOD      = "Good work. Reviewing the topics you found difficu
 const TEXT_RESULT_KEEP_GOING = "These scams are designed to be convincing. Keep practising — awareness is the best protection.";
 
 // Print page
-const TEXT_PRINT_TITLE     = "Scam Shield — Quiz Results";
+const TEXT_PRINT_TITLE     = "ScamSavvy — Quiz Results";
 const TEXT_PRINT_DIFFICULTY = "Difficulty:";
 const TEXT_PRINT_CORRECT_ANS = "Correct answer:";
 const TEXT_PRINT_RED_FLAG   = "Red flag";
-const TEXT_PRINT_FOOTER    = "Scam Shield — scam awareness program for older adults. All data collected is anonymous and used for research purposes only.";
+const TEXT_PRINT_FOOTER    = "ScamSavvy — know the scam before it knows you. All data collected is anonymous and used for research purposes only.";
 
 // Progress bar
 const TEXT_TOPIC_OF        = "Topic"; // used as "Topic X of Y"
@@ -387,7 +387,7 @@ export default function QuizScreen({
     // Only speak immediately if auto-read is off.
     // When auto-read is on, the useEffect watching showFeedback handles it
     // after a short delay — speaking here too would cause double-speaking.
-    if (getAutoRead()) {
+    if (!getAutoRead()) {
       const correctOption = shuffledOptions.find(o => o.correct);
       speak(buildFeedbackScript(correct, currentQuestion.explanation, correctOption?.text ?? ""));
     }
@@ -800,7 +800,7 @@ function ProgressBar({ current, total }) {
   return (
     <div>
       <div style={styles.barTrack}>
-        <div style={{ ...styles.barFill, width: `${pct}%`, background: "#1A3C5E", transition: "width 0.4s ease" }} />
+        <div style={{ ...styles.barFill, width: `${pct}%`, background: "#3D1580", transition: "width 0.4s ease" }} />
       </div>
       {/* TEXT_TOPIC_OF drives both display and speech */}
       <p style={styles.progressLabel}>{TEXT_TOPIC_OF} {current} of {total}</p>
@@ -820,7 +820,7 @@ function BigButton({ children, onClick, disabled }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: "100%", padding: "18px 24px", fontSize: 18, fontWeight: 600,
-      fontFamily: "sans-serif", background: disabled ? "#D0D8E0" : "#1A3C5E",
+      fontFamily: "sans-serif", background: disabled ? "#D0D8E0" : "#3D1580",
       color: disabled ? "#888" : "#fff", border: "none", borderRadius: 10,
       cursor: disabled ? "not-allowed" : "pointer", transition: "background 0.2s",
     }}>
@@ -836,42 +836,53 @@ function Spacer({ h }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = {
-  barTrack: { width: "100%", height: 8, background: "#E0E8F0", borderRadius: 4, overflow: "hidden" },
+  // Progress bar — purple theme
+  barTrack: { width: "100%", height: 6, background: "#E8E0F5", borderRadius: 4, overflow: "hidden" },
   barFill:  { height: "100%", borderRadius: 4 },
-  progressLabel: { fontSize: 13, color: "#888", margin: "6px 0 0", fontFamily: "sans-serif" },
+  progressLabel: { fontSize: 12, color: "#7A5FAA", margin: "5px 0 0", fontFamily: "sans-serif" },
+
+  // Intro screen
   introLabelRow: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  introLabel: { fontSize: 14, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: 0, fontFamily: "sans-serif" },
-  introCard:  { background: "#fff", border: "1.5px solid #D0D8E0", borderRadius: 12, padding: "28px 24px", textAlign: "center" },
-  introIcon:  { fontSize: 44, display: "block" },
-  introName:  { fontSize: 22, fontWeight: 700, color: "#1A3C5E", margin: 0, fontFamily: "'Georgia', serif" },
-  introDesc:  { fontSize: 16, color: "#555", lineHeight: 1.6, margin: 0, fontFamily: "sans-serif" },
-  introStat:  { fontSize: 14, color: "#9B2335", fontWeight: 600, margin: 0, fontFamily: "sans-serif" },
+  introLabel: { fontSize: 13, fontWeight: 600, color: "#7A5FAA", textTransform: "uppercase", letterSpacing: "1px", margin: 0, fontFamily: "sans-serif" },
+  introCard:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 12, padding: "24px 22px", textAlign: "center" },
+  introIcon:  { fontSize: 38, display: "block" },
+  introName:  { fontSize: 20, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
+  introDesc:  { fontSize: 15, color: "#555", lineHeight: 1.6, margin: 0, fontFamily: "sans-serif" },
+  introStat:  { fontSize: 13, color: "#9B2335", fontWeight: 600, margin: 0, fontFamily: "sans-serif" },
+
+  // Question screen
   questionHeader:  { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  questionCounter: { fontSize: 14, color: "#888", margin: 0, fontFamily: "sans-serif" },
-  speakBtn:   { background: "none", border: "1.5px solid #D0D8E0", borderRadius: 8, padding: "4px 10px", fontSize: 18, cursor: "pointer", flexShrink: 0 },
-  questionBox:  { background: "#F0F4F8", border: "1.5px solid #B0C4D8", borderRadius: 10, padding: "18px 20px" },
-  questionText: { fontSize: 17, lineHeight: 1.7, color: "#1A3C5E", margin: 0, fontFamily: "sans-serif" },
-  optionsList:  { display: "flex", flexDirection: "column", gap: 10 },
-  optionBtn:    { width: "100%", padding: "16px 18px", fontSize: 16, lineHeight: 1.5, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 10, transition: "background 0.15s, border-color 0.15s" },
-  feedbackBox:  { border: "2px solid", borderRadius: 10, padding: "16px 18px" },
+  questionCounter: { fontSize: 13, color: "#7A5FAA", margin: 0, fontFamily: "sans-serif" },
+  speakBtn:   { background: "none", border: "1.5px solid #C9B8E8", borderRadius: 8, padding: "4px 10px", fontSize: 16, cursor: "pointer", flexShrink: 0 },
+  // Question box — soft purple tint, very readable dark text
+  questionBox:  { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 10, padding: "16px 18px" },
+  questionText: { fontSize: 16, lineHeight: 1.75, color: "#1A0A3C", margin: 0, fontFamily: "sans-serif" },
+  optionsList:  { display: "flex", flexDirection: "column", gap: 9 },
+  // Options — white with purple border by default, large text for readability
+  optionBtn:    { width: "100%", padding: "14px 16px", fontSize: 15, lineHeight: 1.5, fontFamily: "sans-serif", textAlign: "left", border: "2px solid", borderRadius: 10, transition: "background 0.15s, border-color 0.15s" },
+  feedbackBox:  { border: "2px solid", borderRadius: 10, padding: "14px 16px" },
   feedbackHeader:     { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  feedbackResult:     { fontSize: 17, fontWeight: 700, margin: 0, fontFamily: "sans-serif" },
-  feedbackExplanation:{ fontSize: 15, lineHeight: 1.65, color: "#333", margin: 0, fontFamily: "sans-serif" },
-  messageCard:      { background: "#fff", border: "1.5px solid #D0D8E0", borderRadius: 12, padding: "20px" },
+  feedbackResult:     { fontSize: 16, fontWeight: 700, margin: 0, fontFamily: "sans-serif" },
+  feedbackExplanation:{ fontSize: 14, lineHeight: 1.65, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
+
+  // Hard mode message card
+  messageCard:      { background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 12, padding: "18px" },
   messageMeta:      { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 },
-  messageMetaLabel: { fontSize: 13, color: "#888", fontFamily: "sans-serif", whiteSpace: "nowrap", paddingTop: 2 },
-  messageMetaValue: { fontSize: 13, color: "#333", fontFamily: "sans-serif", lineHeight: 1.5 },
-  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: 15, lineHeight: 1.7, color: "#333", fontFamily: "sans-serif", padding: "4px 6px", border: "none", borderRadius: 4, transition: "background 0.15s" },
-  flagReason:  { fontSize: 13, color: "#9B2335", margin: "4px 0 0 6px", lineHeight: 1.5, fontFamily: "sans-serif" },
-  hardHint:    { fontSize: 13, color: "#888", fontStyle: "italic", margin: 0, fontFamily: "sans-serif", textAlign: "center" },
+  messageMetaLabel: { fontSize: 12, color: "#7A5FAA", fontFamily: "sans-serif", whiteSpace: "nowrap", paddingTop: 2 },
+  messageMetaValue: { fontSize: 13, color: "#1A0A3C", fontFamily: "sans-serif", lineHeight: 1.5 },
+  segmentBtn:  { display: "block", width: "100%", textAlign: "left", fontSize: 14, lineHeight: 1.75, color: "#1A0A3C", fontFamily: "sans-serif", padding: "4px 6px", border: "none", borderRadius: 4, transition: "background 0.15s" },
+  flagReason:  { fontSize: 12, color: "#7A1A2E", margin: "4px 0 0 6px", lineHeight: 1.5, fontFamily: "sans-serif" },
+  hardHint:    { fontSize: 12, color: "#7A5FAA", fontStyle: "italic", margin: 0, fontFamily: "sans-serif", textAlign: "center" },
+
+  // Results screen
   resultsHeader:   { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  resultsTitle:    { fontSize: 26, fontWeight: 700, color: "#1A3C5E", margin: 0, fontFamily: "'Georgia', serif" },
-  overallScoreCard:{ background: "#F0F4F8", border: "1.5px solid #B0C4D8", borderRadius: 12, padding: "28px 24px", textAlign: "center" },
-  overallPct:      { fontSize: 52, fontWeight: 700, color: "#1A3C5E", margin: 0, fontFamily: "sans-serif" },
-  overallFraction: { fontSize: 16, color: "#555", margin: "4px 0 0", fontFamily: "sans-serif" },
-  overallMessage:  { fontSize: 15, lineHeight: 1.65, color: "#333", margin: 0, fontFamily: "sans-serif" },
-  breakdownTitle:  { fontSize: 17, fontWeight: 600, color: "#1A3C5E", margin: 0, fontFamily: "sans-serif" },
-  breakdownRow:    { marginBottom: 16 },
+  resultsTitle:    { fontSize: 24, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "'Georgia', serif" },
+  overallScoreCard:{ background: "#FAF7FF", border: "1.5px solid #C9B8E8", borderRadius: 12, padding: "24px 22px", textAlign: "center" },
+  overallPct:      { fontSize: 48, fontWeight: 700, color: "#3D1580", margin: 0, fontFamily: "sans-serif" },
+  overallFraction: { fontSize: 15, color: "#7A5FAA", margin: "4px 0 0", fontFamily: "sans-serif" },
+  overallMessage:  { fontSize: 14, lineHeight: 1.65, color: "#2A1A50", margin: 0, fontFamily: "sans-serif" },
+  breakdownTitle:  { fontSize: 16, fontWeight: 600, color: "#3D1580", margin: 0, fontFamily: "sans-serif" },
+  breakdownRow:    { marginBottom: 14 },
   breakdownHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   breakdownName:   { fontSize: 15, color: "#333", fontFamily: "sans-serif" },
   breakdownPct:    { fontSize: 15, fontWeight: 700, fontFamily: "sans-serif" },

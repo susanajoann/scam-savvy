@@ -15,7 +15,7 @@ import { createSession } from "./analytics.js";
 // Edit any of these strings and both the displayed text and the spoken text
 // will update automatically.
 
-const TEXT_APP_NAME     = "ScamSavvy";
+const TEXT_APP_NAME    = "ScamSavvy";
 const TEXT_APP_SUBTITLE = "Know the scam before it knows you";
 const TEXT_TAGLINE     = "Learn to recognise the scams most commonly used against older Americans — at your own pace, in plain language.";
 
@@ -152,7 +152,7 @@ function speak(text) {
 
 // Tracks the last text spoken so speed changes can restart it at the new rate.
 // Module-level so it persists across re-renders without a ref.
-
+let _lastSpokenText = null;
 
 function trackAndSpeak(text) {
   _lastSpokenText = text;
@@ -280,9 +280,9 @@ export default function HomeScreen({ onStart }) {
                 onClick={() => handleSpeedChange(s.rate)}
                 style={{
                   ...styles.speedBtn,
-                  background:  speechRate === s.rate ? "#1A3C5E" : "#fff",
-                  color:       speechRate === s.rate ? "#fff"    : "#1A3C5E",
-                  borderColor: "#1A3C5E",
+                  background:  speechRate === s.rate ? "#3D1580" : "#fff",
+                  color:       speechRate === s.rate ? "#fff"    : "#3D1580",
+                  borderColor: "#3D1580",
                 }}
                 title={`Set reading speed to ${s.label}`}
                 aria-label={`Set reading speed to ${s.label}`}
@@ -332,8 +332,8 @@ export default function HomeScreen({ onStart }) {
               onClick={() => setAgeRange(range)}
               style={{
                 ...styles.ageBtn,
-                background: ageRange === range ? "#1A3C5E" : "#fff",
-                color:      ageRange === range ? "#fff"    : "#1A3C5E",
+                background: ageRange === range ? "#3D1580" : "#fff",
+                color:      ageRange === range ? "#fff"    : "#3D1580",
               }}
             >
               {range}
@@ -410,9 +410,9 @@ export default function HomeScreen({ onStart }) {
                 onClick={() => handleSpeedChange(s.rate)}
                 style={{
                   ...styles.speedBtn,
-                  background:  speechRate === s.rate ? "#1A3C5E" : "#fff",
-                  color:       speechRate === s.rate ? "#fff"    : "#1A3C5E",
-                  borderColor: "#1A3C5E",
+                  background:  speechRate === s.rate ? "#3D1580" : "#fff",
+                  color:       speechRate === s.rate ? "#fff"    : "#3D1580",
+                  borderColor: "#3D1580",
                 }}
                 title={`Set reading speed to ${s.label}`}
                 aria-label={`Set reading speed to ${s.label}`}
@@ -457,7 +457,7 @@ export default function HomeScreen({ onStart }) {
                 style={{
                   ...styles.diffCard,
                   background:  isSelected ? d.bg    : "#fff",
-                  borderColor: isSelected ? d.color : "#D0D8E0",
+                  borderColor: isSelected ? d.color : "#C9B8E8",
                   borderWidth: isSelected ? 2.5     : 1.5,
                 }}
               >
@@ -517,51 +517,25 @@ function Wrapper({ children }) {
 function Logo({ small }) {
   return (
     <div>
-      {small ? (
-        // Small version — just the wordmark text, no tagline
+      <p style={{
+        fontSize: small ? 20 : 28,
+        fontWeight: 700,
+        color: "#1A3C5E",
+        margin: 0,
+        letterSpacing: "-0.5px",
+        fontFamily: "'Georgia', serif",
+      }}>
+        🛡️ {TEXT_APP_NAME}
+      </p>
+      {!small && (
         <p style={{
-          fontSize: 24,
-          fontWeight: 700,
-          color: "#3D1580",
-          margin: 0,
-          fontFamily: "Georgia, serif",
-          letterSpacing: "-0.5px",
+          fontSize: 15,
+          color: "#666",
+          margin: "6px 0 0",
+          fontFamily: "sans-serif",
         }}>
-          <span style={{ color: "#3D1580" }}>Scam</span>
-          <span style={{ color: "#C8952A" }}>Savvy</span>
+          {TEXT_APP_SUBTITLE}
         </p>
-      ) : (
-        // Full version — large wordmark with tagline and gold rule
-        <div>
-          <p style={{
-            fontSize: 48,
-            fontWeight: 700,
-            color: "#3D1580",
-            margin: 0,
-            fontFamily: "Georgia, serif",
-            letterSpacing: "-1px",
-            lineHeight: 1,
-          }}>
-            <span style={{ color: "#3D1580" }}>Scam</span>
-            <span style={{ color: "#C8952A" }}>Savvy</span>
-          </p>
-          <div style={{
-            height: 2,
-            background: "#C8952A",
-            opacity: 0.5,
-            margin: "8px 0 6px",
-            width: "100%",
-          }} />
-          <p style={{
-            fontSize: 12,
-            color: "#7A5FAA",
-            margin: 0,
-            fontFamily: "sans-serif",
-            letterSpacing: "2.5px",
-          }}>
-            KNOW THE SCAM BEFORE IT KNOWS YOU
-          </p>
-        </div>
       )}
     </div>
   );
@@ -601,7 +575,7 @@ function BigButton({ children, onClick, disabled }) {
         fontSize: 18,
         fontWeight: 600,
         fontFamily: "sans-serif",
-        background: disabled ? "#D0D8E0" : "#1A3C5E",
+        background: disabled ? "#D0D8E0" : "#3D1580",
         color: disabled ? "#888" : "#fff",
         border: "none",
         borderRadius: 10,
@@ -668,7 +642,7 @@ const styles = {
   label: {
     fontSize: 18,
     fontWeight: 600,
-    color: "#1A3C5E",
+    color: "#3D1580",
     display: "block",
     fontFamily: "sans-serif",
     lineHeight: 1.4,
@@ -691,7 +665,7 @@ const styles = {
     padding: "12px 10px",
     fontSize: 15,
     fontWeight: 600,
-    border: "2px solid #1A3C5E",
+    border: "2px solid #3D1580",
     borderRadius: 8,
     cursor: "pointer",
     fontFamily: "sans-serif",
@@ -699,15 +673,15 @@ const styles = {
     transition: "background 0.15s, color 0.15s",
   },
   noticeBox: {
-    background: "#F0F4F8",
-    border: "1.5px solid #B0C4D8",
+    background: "#FAF7FF",
+    border: "1.5px solid #C9B8E8",
     borderRadius: 10,
     padding: "22px 24px",
   },
   noticeTitle: {
     fontSize: 16,
     fontWeight: 700,
-    color: "#1A3C5E",
+    color: "#3D1580",
     margin: 0,
     fontFamily: "sans-serif",
   },
@@ -723,7 +697,7 @@ const styles = {
     alignItems: "flex-start",
     gap: 14,
     fontSize: 16,
-    color: "#1A3C5E",
+    color: "#3D1580",
     cursor: "pointer",
     fontFamily: "sans-serif",
     lineHeight: 1.5,
@@ -734,7 +708,7 @@ const styles = {
     marginTop: 1,
     cursor: "pointer",
     flexShrink: 0,
-    accentColor: "#1A3C5E",
+    accentColor: "#3D1580",
   },
   hint: {
     fontSize: 14,
@@ -747,9 +721,9 @@ const styles = {
   ageTag: {
     fontSize: 13,
     fontWeight: 600,
-    color: "#1A3C5E",
-    background: "#E0EAF4",
-    border: "1.5px solid #B0C4D8",
+    color: "#3D1580",
+    background: "#EDE8F8",
+    border: "1.5px solid #C9B8E8",
     borderRadius: 20,
     padding: "4px 12px",
     fontFamily: "sans-serif",
