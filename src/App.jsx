@@ -48,24 +48,73 @@ function saveAutoRead(value) {
 
 // ─── Nav bar ──────────────────────────────────────────────────────────────────
 
-function NavBar({
-  onLogoClick,
-  speechRate,
-  setSpeechRate,
-  autoRead,
-  setAutoRead,
-}) {
-  const [audioOpen, setAudioOpen] = useState(false);
+// Global speak function used by the NavBar to read the current page.
+// HomeScreen and QuizScreen pass their read scripts via a ref.
+let _navLastText = "";
+let _navSpeaking = false;
 
-  const handleSpeedChange = (rate) => {
-    setSpeechRate(rate);
-    saveSpeechRate(rate);
-  };
+function navSpeak(text) {
+  if (!window.speechSynthesis) return false;
+  // Toggle off if already speaking the same text
+  if (_navSpeaking && _navLastText === text) {
+    window.speechSynthesis.cancel();
+    _navSpeaking = false;
+    _navLastText = "";
+    return false; // now stopped
+  }
+  window.speechSynthesis.cancel();
+  _navLastText = text;
+  _navSpeaking = true;
+  const rate = (() => {
+    try {
+      const s = localStorage.getItem("scamshield_speech_speed");
+      return s ? parseFloat(s) : 0.88;
+    } catch {
+      return 0.88;
+    }
+  })();
+  const chunks = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  chunks.forEach((chunk, i) => {
+    const u = new SpeechSynthesisUtterance(chunk);
+    u.rate = rate;
+    u.pitch = 1;
+    if (i > 0) {
+      const p = new SpeechSynthesisUtterance(" ");
+      p.rate = 0.1;
+      p.volume = 0;
+      window.speechSynthesis.speak(p);
+    }
+    window.speechSynthesis.speak(u);
+  });
+  // Reset speaking flag when done
+  window.speechSynthesis.addEventListener(
+    "end",
+    () => {
+      _navSpeaking = false;
+    },
+    { once: true },
+  );
+  return true; // now speaking
+}
+
+function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
+  const [audioOpen, setAudioOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleAutoReadToggle = () => {
     const next = !autoRead;
     setAutoRead(next);
     saveAutoRead(next);
+  };
+
+  const handleSpeakBtn = () => {
+    const script = readScriptRef?.current?.();
+    if (!script) return;
+    const nowSpeaking = navSpeak(script);
+    setIsSpeaking(nowSpeaking);
   };
 
   return (
@@ -165,28 +214,55 @@ function NavBar({
         Research Data
       </NavLink>
 
-      {/* Audio button — lives in the nav bar, right side */}
+      {/* Audio controls — 🔊 button reads/stops, ▾ opens auto-read dropdown */}
       <div
-        style={{ position: "relative", marginLeft: "clamp(8px, 2vw, 16px)" }}
+        style={{
+          position: "relative",
+          marginLeft: "clamp(6px, 2vw, 12px)",
+          display: "flex",
+          alignItems: "center",
+        }}
       >
+        {/* Main speak/stop button */}
+        <button
+          onClick={handleSpeakBtn}
+          style={{
+            background: isSpeaking ? "#EDE8F8" : "none",
+            border: "1.5px solid #C9B8E8",
+            borderRadius: "8px 0 0 8px",
+            borderRight: "none",
+            padding: "6px 10px",
+            fontSize: 18,
+            cursor: "pointer",
+            lineHeight: 1,
+            transition: "background 0.15s",
+          }}
+          title={isSpeaking ? "Stop reading" : "Read page aloud"}
+          aria-label={isSpeaking ? "Stop reading" : "Read page aloud"}
+        >
+          {isSpeaking ? "⏹" : "🔊"}
+        </button>
+        {/* Dropdown toggle arrow */}
         <button
           onClick={() => setAudioOpen((o) => !o)}
           style={{
             background: audioOpen ? "#EDE8F8" : "none",
             border: "1.5px solid #C9B8E8",
-            borderRadius: 8,
-            padding: "6px 10px",
-            fontSize: 18,
+            borderRadius: "0 8px 8px 0",
+            padding: "6px 8px",
+            fontSize: 11,
             cursor: "pointer",
             lineHeight: 1,
+            color: "#7A5FAA",
+            transition: "background 0.15s",
           }}
           title='Audio settings'
           aria-label='Audio settings'
         >
-          🔊
+          ▾
         </button>
 
-        {/* Dropdown panel */}
+        {/* Dropdown — auto-read only */}
         {audioOpen && (
           <div
             style={{
@@ -198,54 +274,16 @@ function NavBar({
               borderRadius: 12,
               padding: "14px 16px",
               zIndex: 200,
-              width: "min(220px, calc(100vw - 24px))",
+              width: "min(200px, calc(100vw - 24px))",
               boxShadow: "0 4px 20px rgba(61,21,128,0.15)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
             }}
           >
-            <p
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#7A5FAA",
-                margin: 0,
-                fontFamily: "sans-serif",
-                textTransform: "uppercase",
-                letterSpacing: "0.8px",
-              }}
-            >
-              Speed
-            </p>
-            <div style={{ display: "flex", gap: 6 }}>
-              {SPEECH_SPEEDS.map((s) => (
-                <button
-                  key={s.label}
-                  onClick={() => handleSpeedChange(s.rate)}
-                  style={{
-                    flex: 1,
-                    padding: "7px 6px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border: "1.5px solid #3D1580",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    fontFamily: "sans-serif",
-                    background: speechRate === s.rate ? "#3D1580" : "#fff",
-                    color: speechRate === s.rate ? "#fff" : "#3D1580",
-                    transition: "background 0.15s",
-                  }}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
             <button
               onClick={handleAutoReadToggle}
               style={{
-                padding: "8px 12px",
-                fontSize: 13,
+                width: "100%",
+                padding: "10px 14px",
+                fontSize: 14,
                 fontWeight: 600,
                 border: "1.5px solid #2D6A4F",
                 borderRadius: 8,
@@ -254,10 +292,22 @@ function NavBar({
                 background: autoRead ? "#2D6A4F" : "#fff",
                 color: autoRead ? "#fff" : "#2D6A4F",
                 transition: "background 0.15s",
+                textAlign: "left",
               }}
             >
-              {autoRead ? "Auto-read ON ✓" : "Auto-read OFF"}
+              {autoRead ? "✓ Auto-read ON" : "Auto-read OFF"}
             </button>
+            <p
+              style={{
+                fontSize: 12,
+                color: "#999",
+                margin: "8px 0 0",
+                fontFamily: "sans-serif",
+                lineHeight: 1.4,
+              }}
+            >
+              When on, each new screen is read aloud automatically.
+            </p>
           </div>
         )}
       </div>
@@ -267,7 +317,7 @@ function NavBar({
 
 // ─── Quiz flow ────────────────────────────────────────────────────────────────
 
-function QuizFlow({ resetRef }) {
+function QuizFlow({ resetRef, readScriptRef }) {
   const [screen, setScreen] = useState("home");
   const [quizProps, setQuizProps] = useState(null);
 
@@ -288,7 +338,8 @@ function QuizFlow({ resetRef }) {
     setScreen("quiz");
   };
 
-  if (screen === "home") return <HomeScreen onStart={handleStart} />;
+  if (screen === "home")
+    return <HomeScreen onStart={handleStart} readScriptRef={readScriptRef} />;
 
   if (screen === "quiz" && quizProps) {
     return (
@@ -300,6 +351,7 @@ function QuizFlow({ resetRef }) {
         startedAt={quizProps.startedAt}
         onPlayAgain={goHome}
         onHome={goHome}
+        readScriptRef={readScriptRef}
       />
     );
   }
@@ -310,20 +362,24 @@ function QuizFlow({ resetRef }) {
 
 export default function App() {
   const quizResetRef = useRef(null);
-  const [speechRate, setSpeechRate] = useState(getSpeechRate);
+  const readScriptRef = useRef(() => ""); // any screen can set this to return its read script
   const [autoRead, setAutoRead] = useState(getAutoRead);
 
   return (
     <BrowserRouter>
       <NavBar
         onLogoClick={() => quizResetRef.current?.()}
-        speechRate={speechRate}
-        setSpeechRate={setSpeechRate}
         autoRead={autoRead}
         setAutoRead={setAutoRead}
+        readScriptRef={readScriptRef}
       />
       <Routes>
-        <Route path='/' element={<QuizFlow resetRef={quizResetRef} />} />
+        <Route
+          path='/'
+          element={
+            <QuizFlow resetRef={quizResetRef} readScriptRef={readScriptRef} />
+          }
+        />
         <Route path='/analytics' element={<AnalyticsPage />} />
       </Routes>
     </BrowserRouter>

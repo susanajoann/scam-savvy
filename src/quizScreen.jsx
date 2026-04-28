@@ -292,6 +292,7 @@ export default function QuizScreen({
   sessionId,
   onPlayAgain,
   onHome,
+  readScriptRef,
 }) {
   const [screen, setScreen] = useState("intro");
   const [scamIndex, setScamIndex] = useState(0);
@@ -409,6 +410,55 @@ export default function QuizScreen({
     setSenderHighlighted(false);
     questionStartTime.current = Date.now();
   }, [scamIndex, questionIndex]);
+
+  // Register current screen script with NavBar so the 🔊 button knows what to read.
+  // Updates whenever the screen, question, or feedback state changes.
+  useEffect(() => {
+    if (!readScriptRef) return;
+    if (screen === "intro" && currentScam) {
+      const isFirst = scamIndex === 0;
+      readScriptRef.current = () =>
+        buildIntroScript(currentScam, isFirst, isHardMode);
+    } else if (
+      screen === "question" &&
+      !isHardMode &&
+      currentQuestion &&
+      shuffledOptions.length > 0
+    ) {
+      if (showFeedback) {
+        const correctOption = shuffledOptions.find((o) => o.correct);
+        readScriptRef.current = () =>
+          buildFeedbackScript(
+            selectedOption?.correct,
+            currentQuestion.explanation,
+            correctOption?.text ?? "",
+          );
+      } else {
+        readScriptRef.current = () =>
+          buildQuestionScript(currentQuestion, shuffledOptions);
+      }
+    } else if (screen === "question" && isHardMode && currentScam) {
+      const hardContent = currentScam.hard;
+      const bodyText = hardContent.body.map((s) => s.text).join(" ");
+      readScriptRef.current = () =>
+        `${hardContent.instruction} The message reads: ${bodyText}`;
+    } else if (screen === "results") {
+      const totalCorrect = scamScores.reduce((sum, s) => sum + s.correct, 0);
+      const totalQuestions = scamScores.reduce((sum, s) => sum + s.total, 0);
+      const pct = totalQuestions
+        ? Math.round((totalCorrect / totalQuestions) * 100)
+        : 0;
+      readScriptRef.current = () =>
+        buildResultsScript(pct, totalCorrect, totalQuestions, scamScores);
+    }
+  }, [
+    screen,
+    scamIndex,
+    questionIndex,
+    showFeedback,
+    shuffledOptions.length,
+    answersRevealed,
+  ]);
 
   // ── Multiple choice handlers ──────────────────────────────────────────────
 

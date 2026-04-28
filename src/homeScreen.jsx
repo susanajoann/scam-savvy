@@ -169,7 +169,7 @@ function buildHomeScript(ageRange, selectedDifficulty) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function HomeScreen({ onStart }) {
+export default function HomeScreen({ onStart, readScriptRef }) {
   const [screen, setScreen] = useState("landing");
   const [ageRange, setAgeRange] = useState("");
   const [consentGiven, setConsentGiven] = useState(false);
@@ -184,6 +184,17 @@ export default function HomeScreen({ onStart }) {
       return false;
     }
   };
+
+  // Register current page script with NavBar so the 🔊 button knows what to read
+  useEffect(() => {
+    if (!readScriptRef) return;
+    if (screen === "landing") {
+      readScriptRef.current = () => buildLandingScript(ageRange, consentGiven);
+    } else if (screen === "home") {
+      readScriptRef.current = () =>
+        buildHomeScript(ageRange, selectedDifficulty);
+    }
+  }, [screen, ageRange, consentGiven, selectedDifficulty]);
 
   // Auto-read on landing screen load
   useEffect(() => {
@@ -277,16 +288,6 @@ export default function HomeScreen({ onStart }) {
             </p>
           </>
         )}
-
-        {/* Read page aloud button */}
-        <Spacer h={20} />
-        <button
-          onClick={() => speak(buildLandingScript(ageRange, consentGiven))}
-          style={styles.readAloudBtn}
-          aria-label='Read this page aloud'
-        >
-          🔊 Read this page aloud
-        </button>
       </Wrapper>
     );
   }
@@ -354,15 +355,6 @@ export default function HomeScreen({ onStart }) {
             <p style={styles.hint}>{TEXT_HOME_HINT}</p>
           </>
         )}
-
-        <Spacer h={20} />
-        <button
-          onClick={() => speak(buildHomeScript(ageRange, selectedDifficulty))}
-          style={styles.readAloudBtn}
-          aria-label='Read this page aloud'
-        >
-          🔊 Read this page aloud
-        </button>
 
         <Spacer h={24} />
         <p style={styles.footer}>{TEXT_HOME_FOOTER}</p>
@@ -567,20 +559,7 @@ const styles = {
     fontWeight: 700,
     fontFamily: "sans-serif",
   },
-  // Read aloud button — sits below content, subtle secondary style
-  readAloudBtn: {
-    width: "100%",
-    padding: "14px 20px",
-    fontSize: "clamp(15px, 2vw, 17px)",
-    fontFamily: "sans-serif",
-    fontWeight: 500,
-    background: "#FAF7FF",
-    color: "#3D1580",
-    border: "1.5px solid #C9B8E8",
-    borderRadius: 10,
-    cursor: "pointer",
-    transition: "background 0.15s",
-  },
+
   footer: {
     fontSize: "clamp(13px, 1.8vw, 15px)",
     color: "#999",
