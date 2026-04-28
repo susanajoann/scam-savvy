@@ -242,24 +242,27 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
         >
           {isSpeaking ? "⏹" : "🔊"}
         </button>
-        {/* Dropdown toggle arrow */}
+        {/* Dropdown toggle arrow — matches height of speak button */}
         <button
           onClick={() => setAudioOpen((o) => !o)}
           style={{
             background: audioOpen ? "#EDE8F8" : "none",
             border: "1.5px solid #C9B8E8",
             borderRadius: "0 8px 8px 0",
-            padding: "6px 8px",
-            fontSize: 11,
+            padding: "6px 7px",
+            fontSize: 18,
             cursor: "pointer",
             lineHeight: 1,
             color: "#7A5FAA",
             transition: "background 0.15s",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           title='Audio settings'
           aria-label='Audio settings'
         >
-          ▾
+          <span style={{ fontSize: 10, lineHeight: 1 }}>▾</span>
         </button>
 
         {/* Dropdown — auto-read only */}

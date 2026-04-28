@@ -68,12 +68,6 @@ const TEXT_PRINT_FOOTER =
 const TEXT_TOPIC_OF = "Topic"; // used as "Topic X of Y"
 
 // Read aloud button label
-const TEXT_SPEAK_LABEL_QUESTION = "Read question aloud";
-const TEXT_SPEAK_LABEL_FEEDBACK = "Read feedback aloud";
-const TEXT_SPEAK_LABEL_MESSAGE = "Read message aloud";
-const TEXT_SPEAK_LABEL_INTRO = "Read this page aloud";
-const TEXT_SPEAK_LABEL_RESULTS = "Read results aloud";
-
 // ─── Speech speed ────────────────────────────────────────────────────────────
 // Reads the speed the user selected on the home screen.
 // Defaults to 0.88 if nothing has been saved yet.
@@ -594,18 +588,9 @@ export default function QuizScreen({
           isHardMode={isHardMode}
         />
         <Spacer h={32} />
-        <div style={styles.introLabelRow}>
-          {/* TEXT_FIRST_UP / TEXT_NEXT_UP drive both display and speech */}
-          <p style={styles.introLabel}>
-            {isFirst ? TEXT_FIRST_UP : TEXT_NEXT_UP}
-          </p>
-          <SpeakButton
-            onClick={() =>
-              speak(buildIntroScript(currentScam, isFirst, isHardMode))
-            }
-            label={TEXT_SPEAK_LABEL_INTRO}
-          />
-        </div>
+        <p style={styles.introLabel}>
+          {isFirst ? TEXT_FIRST_UP : TEXT_NEXT_UP}
+        </p>
         <Spacer h={12} />
         <div style={styles.introCard}>
           <span style={styles.introIcon}>{currentScam.icon}</span>
@@ -774,20 +759,9 @@ export default function QuizScreen({
           isHardMode={true}
         />
         <Spacer h={8} />
-        <div style={styles.questionHeader}>
-          <p style={styles.questionCounter}>
-            {currentScam.icon} {currentScam.name} — {TEXT_HARD_MODE_LABEL}
-          </p>
-          <SpeakButton
-            onClick={() => {
-              const bodyText = hardContent.body.map((s) => s.text).join(" ");
-              speak(
-                `${hardContent.instruction} The message reads: ${bodyText}`,
-              );
-            }}
-            label={TEXT_SPEAK_LABEL_MESSAGE}
-          />
-        </div>
+        <p style={styles.questionCounter}>
+          {currentScam.icon} {currentScam.name} — {TEXT_HARD_MODE_LABEL}
+        </p>
         <Spacer h={8} />
         <div style={styles.questionBox}>
           {/* hardContent.instruction comes from scamData.js */}
@@ -932,23 +906,7 @@ export default function QuizScreen({
       : 0;
     return (
       <Wrapper onHome={onHome}>
-        <div style={styles.resultsHeader}>
-          {/* TEXT_QUIZ_COMPLETE drives both display and speech */}
-          <p style={styles.resultsTitle}>{TEXT_QUIZ_COMPLETE}</p>
-          <SpeakButton
-            onClick={() =>
-              speak(
-                buildResultsScript(
-                  overallPct,
-                  totalCorrect,
-                  totalQuestions,
-                  scamScores,
-                ),
-              )
-            }
-            label={TEXT_SPEAK_LABEL_RESULTS}
-          />
-        </div>
+        <p style={styles.resultsTitle}>{TEXT_QUIZ_COMPLETE}</p>
         <Spacer h={24} />
         <div style={styles.overallScoreCard}>
           <p style={styles.overallPct}>{overallPct}%</p>
@@ -1112,19 +1070,6 @@ function ProgressBar({
   );
 }
 
-function SpeakButton({ onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      style={styles.speakBtn}
-      title={label}
-      aria-label={label}
-    >
-      🔊
-    </button>
-  );
-}
-
 function BigButton({ children, onClick, disabled }) {
   return (
     <button
@@ -1174,11 +1119,7 @@ const styles = {
   },
 
   // Intro screen — larger for older eyes
-  introLabelRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+
   introLabel: {
     fontSize: 14,
     fontWeight: 600,
@@ -1219,26 +1160,14 @@ const styles = {
   },
 
   // Question screen — generous sizing throughout
-  questionHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+
   questionCounter: {
     fontSize: 15,
     color: "#7A5FAA",
     margin: 0,
     fontFamily: "sans-serif",
   },
-  speakBtn: {
-    background: "none",
-    border: "1.5px solid #C9B8E8",
-    borderRadius: 8,
-    padding: "6px 12px",
-    fontSize: 20,
-    cursor: "pointer",
-    flexShrink: 0,
-  },
+
   // Question box — large, clear, well-padded
   questionBox: {
     background: "#FAF7FF",
@@ -1273,11 +1202,7 @@ const styles = {
     borderRadius: 12,
     padding: "clamp(14px, 3vw, 20px) clamp(14px, 3vw, 22px)",
   },
-  feedbackHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+
   feedbackResult: {
     fontSize: 19,
     fontWeight: 700,
@@ -1352,11 +1277,7 @@ const styles = {
   },
 
   // Results screen
-  resultsHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+
   resultsTitle: {
     fontSize: 28,
     fontWeight: 700,
