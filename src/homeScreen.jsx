@@ -122,19 +122,14 @@ function saveAutoRead(value) {
 
 // ─── Speech utility ─────────────────────────────────────────────────────────
 // Tracks the last text spoken so that changing speed can restart it.
-let _lastSpokenText = "";
+let _lastSpokenText = "";──
 
 function speak(text) {
   if (!window.speechSynthesis) return;
-  // If already speaking the same text, stop it (toggle behaviour)
-  if (window.speechSynthesis.speaking && _lastSpokenText === text) {
-    window.speechSynthesis.cancel();
-    _lastSpokenText = "";
-    return;
-  }
   window.speechSynthesis.cancel();
   // Remember what was spoken so speed changes can restart it
   _lastSpokenText = text;
+
   // Split at sentence-ending punctuation to create natural pauses.
   const chunks = text
     .split(/(?<=[.!?])\s+/)
@@ -157,6 +152,7 @@ function speak(text) {
 
 // Tracks the last text spoken so speed changes can restart it at the new rate.
 // Module-level so it persists across re-renders without a ref.
+let _lastSpokenText = null;
 
 function trackAndSpeak(text) {
   _lastSpokenText = text;
@@ -234,6 +230,8 @@ export default function HomeScreen({ onStart }) {
   const [speechRate, setSpeechRate] = useState(getSpeechRate);
   // Auto-read — if true, each screen speaks automatically after a short delay
   const [autoRead, setAutoRead] = useState(getAutoRead);
+  // Controls whether the audio settings panel is expanded
+  const [audioOpen, setAudioOpen] = useState(false);
 
   // Updates the speech rate in state, persists it, and restarts any
   // speech currently in progress at the new speed.
@@ -276,42 +274,72 @@ export default function HomeScreen({ onStart }) {
         {/* Header row — logo, speed selector, and 🔊 button */}
         <div style={styles.headerRow}>
           <Logo />
-          <div style={styles.speechControls}>
-            {/* Speed selector — saves to localStorage so it persists */}
-            {SPEECH_SPEEDS.map(s => (
-              <button
-                key={s.label}
-                onClick={() => handleSpeedChange(s.rate)}
-                style={{
-                  ...styles.speedBtn,
-                  background:  speechRate === s.rate ? "#3D1580" : "#fff",
-                  color:       speechRate === s.rate ? "#fff"    : "#3D1580",
-                  borderColor: "#3D1580",
-                }}
-                title={`Set reading speed to ${s.label}`}
-                aria-label={`Set reading speed to ${s.label}`}
-              >
-                {s.label}
-              </button>
-            ))}
-            {/* Auto-read toggle — persists to localStorage */}
+          <div style={styles.audioWrapper}>
+            {/* Single 🔊 button — tapping expands speed/auto controls */}
             <button
-              onClick={handleAutoReadToggle}
+              onClick={() => setAudioOpen(o => !o)}
               style={{
-                ...styles.speedBtn,
-                background:  autoRead ? "#2D6A4F" : "#fff",
-                color:       autoRead ? "#fff"    : "#2D6A4F",
-                borderColor: "#2D6A4F",
+                ...styles.speakBtn,
+                background: audioOpen ? "#EDE8F8" : "none",
+                position: "relative",
               }}
-              title={autoRead ? "Turn off auto-read" : "Turn on auto-read"}
-              aria-label={autoRead ? "Turn off auto-read" : "Turn on auto-read"}
+              title="Audio settings"
+              aria-label="Audio settings"
             >
-              {autoRead ? "Auto ✓" : "Auto"}
+              🔊
             </button>
-            <SpeakButton
-              onClick={() => trackAndSpeak(buildLandingScript(ageRange, consentGiven))}
-              label="Read everything on this page aloud"
-            />
+            {/* Expanded panel */}
+            {audioOpen && (
+              <div style={styles.audioPanel}>
+                <p style={styles.audioPanelLabel}>Speed</p>
+                <div style={styles.audioBtnRow}>
+                  {SPEECH_SPEEDS.map(s => (
+                    <button
+                      key={s.label}
+                      onClick={() => handleSpeedChange(s.rate)}
+                      style={{
+                        ...styles.speedBtn,
+                        background:  speechRate === s.rate ? "#3D1580" : "#fff",
+                        color:       speechRate === s.rate ? "#fff"    : "#3D1580",
+                        borderColor: "#3D1580",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={styles.audioBtnRow}>
+                  <button
+                    onClick={handleAutoReadToggle}
+                    style={{
+                      ...styles.speedBtn,
+                      background:  autoRead ? "#2D6A4F" : "#fff",
+                      color:       autoRead ? "#fff"    : "#2D6A4F",
+                      borderColor: "#2D6A4F",
+                      flex: 1,
+                    }}
+                  >
+                    {autoRead ? "Auto-read ON ✓" : "Auto-read OFF"}
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    trackAndSpeak(buildLandingScript(ageRange, consentGiven));
+                    setAudioOpen(false);
+                  }}
+                  style={{
+                    ...styles.speedBtn,
+                    width: "100%",
+                    background: "#3D1580",
+                    color: "#fff",
+                    borderColor: "#3D1580",
+                    marginTop: 4,
+                  }}
+                >
+                  🔊 Read page aloud
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -407,40 +435,69 @@ export default function HomeScreen({ onStart }) {
             <Logo small />
             <span style={styles.ageTag}>{ageRange}</span>
           </div>
-          <div style={styles.speechControls}>
-            {SPEECH_SPEEDS.map(s => (
-              <button
-                key={s.label}
-                onClick={() => handleSpeedChange(s.rate)}
-                style={{
-                  ...styles.speedBtn,
-                  background:  speechRate === s.rate ? "#3D1580" : "#fff",
-                  color:       speechRate === s.rate ? "#fff"    : "#3D1580",
-                  borderColor: "#3D1580",
-                }}
-                title={`Set reading speed to ${s.label}`}
-                aria-label={`Set reading speed to ${s.label}`}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div style={styles.audioWrapper}>
             <button
-              onClick={handleAutoReadToggle}
+              onClick={() => setAudioOpen(o => !o)}
               style={{
-                ...styles.speedBtn,
-                background:  autoRead ? "#2D6A4F" : "#fff",
-                color:       autoRead ? "#fff"    : "#2D6A4F",
-                borderColor: "#2D6A4F",
+                ...styles.speakBtn,
+                background: audioOpen ? "#EDE8F8" : "none",
               }}
-              title={autoRead ? "Turn off auto-read" : "Turn on auto-read"}
-              aria-label={autoRead ? "Turn off auto-read" : "Turn on auto-read"}
+              title="Audio settings"
+              aria-label="Audio settings"
             >
-              {autoRead ? "Auto ✓" : "Auto"}
+              🔊
             </button>
-            <SpeakButton
-              onClick={() => trackAndSpeak(buildHomeScript(ageRange, selectedDifficulty))}
-              label="Read this page aloud"
-            />
+            {audioOpen && (
+              <div style={styles.audioPanel}>
+                <p style={styles.audioPanelLabel}>Speed</p>
+                <div style={styles.audioBtnRow}>
+                  {SPEECH_SPEEDS.map(s => (
+                    <button
+                      key={s.label}
+                      onClick={() => handleSpeedChange(s.rate)}
+                      style={{
+                        ...styles.speedBtn,
+                        background:  speechRate === s.rate ? "#3D1580" : "#fff",
+                        color:       speechRate === s.rate ? "#fff"    : "#3D1580",
+                        borderColor: "#3D1580",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={styles.audioBtnRow}>
+                  <button
+                    onClick={handleAutoReadToggle}
+                    style={{
+                      ...styles.speedBtn,
+                      background:  autoRead ? "#2D6A4F" : "#fff",
+                      color:       autoRead ? "#fff"    : "#2D6A4F",
+                      borderColor: "#2D6A4F",
+                      flex: 1,
+                    }}
+                  >
+                    {autoRead ? "Auto-read ON ✓" : "Auto-read OFF"}
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    trackAndSpeak(buildHomeScript(ageRange, selectedDifficulty));
+                    setAudioOpen(false);
+                  }}
+                  style={{
+                    ...styles.speedBtn,
+                    width: "100%",
+                    background: "#3D1580",
+                    color: "#fff",
+                    borderColor: "#3D1580",
+                    marginTop: 4,
+                  }}
+                >
+                  🔊 Read page aloud
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -635,15 +692,39 @@ const styles = {
     flexDirection: "column",
     gap: 8,
   },
-  // Row holding the speed buttons and the 🔊 button together
-  speechControls: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
+  // Wrapper for the compact audio toggle button + dropdown panel
+  audioWrapper: {
+    position: "relative",
     flexShrink: 0,
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-    maxWidth: "60%",
+  },
+  // Dropdown panel that appears when the 🔊 button is tapped
+  audioPanel: {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    right: 0,
+    background: "#fff",
+    border: "1.5px solid #C9B8E8",
+    borderRadius: 12,
+    padding: "14px 16px",
+    zIndex: 200,
+    minWidth: 180,
+    boxShadow: "0 4px 16px rgba(61,21,128,0.10)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  audioPanelLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#7A5FAA",
+    margin: 0,
+    fontFamily: "sans-serif",
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+  },
+  audioBtnRow: {
+    display: "flex",
+    gap: 6,
   },
   // Individual speed selector button
   speedBtn: {

@@ -105,12 +105,6 @@ let _lastSpokenText = "";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
-  // If already speaking the same text, stop it (toggle behaviour)
-  if (window.speechSynthesis.speaking && _lastSpokenText === text) {
-    window.speechSynthesis.cancel();
-    _lastSpokenText = "";
-    return;
-  }
   window.speechSynthesis.cancel();
   // Remember what was spoken so speed changes can restart it
   _lastSpokenText = text;
@@ -471,7 +465,7 @@ export default function QuizScreen({
     setCurrentScamScore((s) => s + score);
     setAnswersRevealed(true);
     // Only speak immediately if auto-read is off — same pattern as feedback
-    if (getAutoRead()) {
+    if (!getAutoRead()) {
       speak(buildHardRevealScript(correctHits, allFlags.length, missed));
     }
     for (const segment of hardContent.body) {
@@ -987,48 +981,6 @@ function Wrapper({ children, onHome }) {
         fontFamily: "'Georgia', serif",
       }}
     >
-      {/* Persistent ScamSavvy logo bar — clicking returns to home screen */}
-      <div
-        style={{
-          width: "100%",
-          boxSizing: "border-box",
-          padding: "16px clamp(20px, 5vw, 64px) 14px",
-          borderBottom: "1.5px solid #E8E0F5",
-          marginBottom: 4,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <button
-          onClick={onHome}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: onHome ? "pointer" : "default",
-            padding: 0,
-            margin: 0,
-            lineHeight: 1,
-          }}
-          title='Return to home screen'
-          aria-label='Return to home screen'
-        >
-          <p
-            style={{
-              fontSize: "clamp(22px, 3vw, 28px)",
-              fontWeight: 700,
-              margin: 0,
-              fontFamily: "Georgia, serif",
-              letterSpacing: "-0.5px",
-              lineHeight: 1,
-            }}
-          >
-            <span style={{ color: "#3D1580" }}>Scam</span>
-            <span style={{ color: "#C8952A" }}>Savvy</span>
-          </p>
-        </button>
-      </div>
-      {/* Page content */}
       <div style={{ padding: "24px clamp(20px, 5vw, 64px) 60px" }}>
         {children}
       </div>
