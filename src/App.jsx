@@ -11,8 +11,8 @@
 
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
-import HomeScreen from "./HomeScreen";
-import QuizScreen from "./QuizScreen";
+import HomeScreen from "./homeScreen";
+import QuizScreen from "./quizScreen";
 import AnalyticsPage from "./AnalyticsPage";
 
 // ─── Nav bar ─────────────────────────────────────────────────────────────────
