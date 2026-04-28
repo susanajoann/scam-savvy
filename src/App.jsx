@@ -227,29 +227,31 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
         <button
           onClick={handleSpeakBtn}
           style={{
-            background: isSpeaking ? "#EDE8F8" : "none",
+            background: isSpeaking ? "#EDE8F8" : "#fff",
             border: "1.5px solid #C9B8E8",
             borderRadius: "8px 0 0 8px",
             borderRight: "none",
-            padding: "6px 10px",
+            padding: "7px 11px",
             fontSize: 18,
             cursor: "pointer",
             lineHeight: 1,
             transition: "background 0.15s",
+            display: "flex",
+            alignItems: "center",
           }}
           title={isSpeaking ? "Stop reading" : "Read page aloud"}
           aria-label={isSpeaking ? "Stop reading" : "Read page aloud"}
         >
           {isSpeaking ? "⏹" : "🔊"}
         </button>
-        {/* Dropdown toggle arrow — matches height of speak button */}
+        {/* Dropdown toggle arrow */}
         <button
           onClick={() => setAudioOpen((o) => !o)}
           style={{
-            background: audioOpen ? "#EDE8F8" : "none",
+            background: audioOpen ? "#EDE8F8" : "#fff",
             border: "1.5px solid #C9B8E8",
             borderRadius: "0 8px 8px 0",
-            padding: "6px 7px",
+            padding: "7px 8px",
             fontSize: 18,
             cursor: "pointer",
             lineHeight: 1,
@@ -262,7 +264,7 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
           title='Audio settings'
           aria-label='Audio settings'
         >
-          <span style={{ fontSize: 10, lineHeight: 1 }}>▾</span>
+          <span style={{ fontSize: 11, lineHeight: 1 }}>▾</span>
         </button>
 
         {/* Dropdown — auto-read only */}
