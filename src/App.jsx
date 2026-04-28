@@ -6,8 +6,8 @@
 
 import { useState, useRef } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
-import HomeScreen from "./homeScreen";
-import QuizScreen from "./quizScreen";
+import HomeScreen from "./HomeScreen";
+import QuizScreen from "./QuizScreen";
 import AnalyticsPage from "./AnalyticsPage";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
           alignItems: "center",
         }}
       >
-        {/* Main speak/stop button */}
+        {/* Unified audio button group — both buttons share identical sizing */}
         <button
           onClick={handleSpeakBtn}
           style={{
@@ -231,40 +231,42 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
             border: "1.5px solid #C9B8E8",
             borderRadius: "8px 0 0 8px",
             borderRight: "none",
-            padding: "7px 11px",
-            fontSize: 18,
+            width: 40,
+            height: 36,
+            fontSize: 16,
             cursor: "pointer",
-            lineHeight: 1,
-            transition: "background 0.15s",
             display: "flex",
             alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.15s",
+            padding: 0,
           }}
           title={isSpeaking ? "Stop reading" : "Read page aloud"}
           aria-label={isSpeaking ? "Stop reading" : "Read page aloud"}
         >
           {isSpeaking ? "⏹" : "🔊"}
         </button>
-        {/* Dropdown toggle arrow */}
         <button
           onClick={() => setAudioOpen((o) => !o)}
           style={{
             background: audioOpen ? "#EDE8F8" : "#fff",
             border: "1.5px solid #C9B8E8",
             borderRadius: "0 8px 8px 0",
-            padding: "7px 8px",
-            fontSize: 18,
+            width: 24,
+            height: 36,
+            fontSize: 11,
             cursor: "pointer",
-            lineHeight: 1,
-            color: "#7A5FAA",
-            transition: "background 0.15s",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            color: "#7A5FAA",
+            transition: "background 0.15s",
+            padding: 0,
           }}
           title='Audio settings'
           aria-label='Audio settings'
         >
-          <span style={{ fontSize: 11, lineHeight: 1 }}>▾</span>
+          ▾
         </button>
 
         {/* Dropdown — auto-read only */}
