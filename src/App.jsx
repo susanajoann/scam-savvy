@@ -186,19 +186,6 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
           <span style={{ color: "#3D1580" }}>S</span>
           <span style={{ color: "#C8952A" }}>S</span>
         </span>
-        <span
-          style={{
-            fontSize: "clamp(0px, 1.2vw, 11px)",
-            color: "#7A5FAA",
-            fontFamily: "sans-serif",
-            letterSpacing: "1.5px",
-            lineHeight: 1,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-          }}
-        >
-          KNOW THE SCAM BEFORE IT KNOWS YOU
-        </span>
       </NavLink>
 
       {/* Quiz tab */}
