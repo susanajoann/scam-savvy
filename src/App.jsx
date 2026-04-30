@@ -9,7 +9,7 @@ import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import HomeScreen from "./homeScreen";
 import QuizScreen from "./quizScreen";
 import AnalyticsPage from "./AnalyticsPage";
-import FeedbackPage from "./FeedbackPage";
+import FeedbackPage from "./Feedbackpage";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
