@@ -822,7 +822,7 @@ export default function AnalyticsPage({ readScriptRef }) {
           <BarChart
             data={scamData}
             layout='vertical'
-            margin={{ left: 10, right: 60, top: 10, bottom: 10 }}
+            margin={{ left: 10, right: 70, top: 10, bottom: 10 }}
           >
             <CartesianGrid strokeDasharray='3 3' horizontal={false} />
             <XAxis
@@ -871,7 +871,7 @@ export default function AnalyticsPage({ readScriptRef }) {
         <ResponsiveContainer width='100%' height={300}>
           <BarChart
             data={ageData}
-            margin={{ left: 10, right: 20, top: 10, bottom: 10 }}
+            margin={{ left: 10, right: 20, top: 24, bottom: 10 }}
           >
             <CartesianGrid strokeDasharray='3 3' vertical={false} />
             <XAxis dataKey='name' tick={s.axisTick} />
@@ -914,7 +914,7 @@ export default function AnalyticsPage({ readScriptRef }) {
         <ResponsiveContainer width='100%' height={280}>
           <BarChart
             data={timeData}
-            margin={{ left: 10, right: 20, top: 10, bottom: 10 }}
+            margin={{ left: 10, right: 20, top: 24, bottom: 10 }}
           >
             <CartesianGrid strokeDasharray='3 3' vertical={false} />
             <XAxis dataKey='name' tick={s.axisTick} />
@@ -945,7 +945,7 @@ export default function AnalyticsPage({ readScriptRef }) {
         <ResponsiveContainer width='100%' height={240}>
           <BarChart
             data={diffData}
-            margin={{ left: 10, right: 20, top: 10, bottom: 10 }}
+            margin={{ left: 10, right: 20, top: 24, bottom: 10 }}
           >
             <CartesianGrid strokeDasharray='3 3' vertical={false} />
             <XAxis dataKey='name' tick={s.axisTick} />
