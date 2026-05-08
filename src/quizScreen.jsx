@@ -365,13 +365,16 @@ export default function QuizScreen({
     setShowFeedback(true);
     await recordAnswer(sessionId, {
       scamId: currentScam.id,
-      questionId: currentQuestion.id,
+      questionId: currentScam.hard.id,
       ageRange,
       difficulty,
-      correct,
+      correct: score > 0,
       timeTaken,
       startedAt,
       finishedAt,
+      flagsCorrect: correctHits,
+      flagsMissed: missed,
+      falsePositives,
     });
   };
 

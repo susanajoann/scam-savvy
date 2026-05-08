@@ -30,27 +30,27 @@
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const API_BASE          = `${SUPABASE_URL}/rest/v1`;
+const API_BASE = `${SUPABASE_URL}/rest/v1`;
 
 // Headers for INSERT requests (POST)
 // return=minimal keeps responses fast — no body returned on success
 const INSERT_HEADERS = {
-  apikey:         SUPABASE_ANON_KEY,
-  Authorization:  `Bearer ${SUPABASE_ANON_KEY}`,
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
   "Content-Type": "application/json",
-  Prefer:         "return=minimal",
+  Prefer: "return=minimal",
 };
 
 // Headers for UPDATE requests (PATCH)
 // return=representation asks Supabase to return the updated row,
 // which confirms the update actually applied rather than silently matching zero rows.
 const UPDATE_HEADERS = {
-  apikey:         SUPABASE_ANON_KEY,
-  Authorization:  `Bearer ${SUPABASE_ANON_KEY}`,
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
   "Content-Type": "application/json",
-  Prefer:         "return=representation",
+  Prefer: "return=representation",
 };
 
 // ─── ID generation ────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function generateUUID() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -77,13 +77,17 @@ function generateUUID() {
 async function insertRow(table, data) {
   try {
     const response = await fetch(`${API_BASE}/${table}`, {
-      method:  "POST",
+      method: "POST",
       headers: INSERT_HEADERS,
-      body:    JSON.stringify(data),
+      body: JSON.stringify(data),
     });
     if (!response.ok) {
       const text = await response.text();
-      console.warn(`[analytics] Failed to insert into ${table}:`, response.status, text);
+      console.warn(
+        `[analytics] Failed to insert into ${table}:`,
+        response.status,
+        text,
+      );
       return false;
     }
     return true;
@@ -100,14 +104,18 @@ async function insertRow(table, data) {
 async function updateRow(table, filter, data) {
   try {
     const response = await fetch(`${API_BASE}/${table}?${filter}`, {
-      method:  "PATCH",
+      method: "PATCH",
       headers: UPDATE_HEADERS,
-      body:    JSON.stringify(data),
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
       const text = await response.text();
-      console.warn(`[analytics] Failed to update ${table}:`, response.status, text);
+      console.warn(
+        `[analytics] Failed to update ${table}:`,
+        response.status,
+        text,
+      );
       return null;
     }
 
@@ -116,7 +124,9 @@ async function updateRow(table, filter, data) {
     // If result is an empty array, the filter matched zero rows —
     // the update silently did nothing. Log this so it's easy to debug.
     if (Array.isArray(result) && result.length === 0) {
-      console.warn(`[analytics] Update matched zero rows in ${table} with filter: ${filter}`);
+      console.warn(
+        `[analytics] Update matched zero rows in ${table} with filter: ${filter}`,
+      );
       return null;
     }
 
@@ -143,9 +153,9 @@ export async function createSession(difficulty, ageRange) {
   const startedAt = new Date().toISOString();
   await insertRow("sessions", {
     session_id: sessionId,
-    age_range:  ageRange,
+    age_range: ageRange,
     difficulty: difficulty,
-    completed:  false,
+    completed: false,
     started_at: startedAt,
   });
   // Return both so the quiz screen can pass startedAt to completeSession
@@ -168,15 +178,18 @@ export async function createSession(difficulty, ageRange) {
 //     timeTaken   (number)  — seconds spent on this question
 export async function recordAnswer(sessionId, answer) {
   await insertRow("answers", {
-    session_id:  sessionId,
-    scam_id:     answer.scamId,
+    session_id: sessionId,
+    scam_id: answer.scamId,
     question_id: answer.questionId,
-    age_range:   answer.ageRange,
-    difficulty:  answer.difficulty,
-    correct:     answer.correct,
-    time_taken:  answer.timeTaken,
-    started_at:  answer.startedAt,
+    age_range: answer.ageRange,
+    difficulty: answer.difficulty,
+    correct: answer.correct,
+    time_taken: answer.timeTaken,
+    started_at: answer.startedAt,
     finished_at: answer.finishedAt,
+    flags_correct: answer.flagsCorrect ?? null,
+    flags_missed: answer.flagsMissed ?? null,
+    false_positives: answer.falsePositives ?? null,
   });
 }
 
@@ -189,8 +202,15 @@ export async function recordAnswer(sessionId, answer) {
 // Parameters:
 //   sessionId — UUID returned by createSession()
 //   totalTime — total seconds from quiz start to final answer
-export async function completeSession(sessionId, totalTime, ageRange, difficulty, startedAt) {
-  try {console.log
+export async function completeSession(
+  sessionId,
+  totalTime,
+  ageRange,
+  difficulty,
+  startedAt,
+) {
+  try {
+    console.log;
     const response = await fetch(
       `${API_BASE}/sessions?session_id=eq.${sessionId}`,
       {
@@ -199,14 +219,14 @@ export async function completeSession(sessionId, totalTime, ageRange, difficulty
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           "Content-Type": "application/json",
-          "Prefer": "return=minimal",
+          Prefer: "return=minimal",
         },
         body: JSON.stringify({
-          completed:   true,
-          total_time:  totalTime,
+          completed: true,
+          total_time: totalTime,
           finished_at: new Date().toISOString(),
         }),
-      }
+      },
     );
     const text = await response.text();
   } catch (err) {

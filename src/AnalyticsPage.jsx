@@ -31,6 +31,15 @@ function formatTime(secs) {
   return `${h}h ${m}m ${s}s`;
 }
 
+function median(arr) {
+  if (!arr.length) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
 const SCAM_NAMES = {
   phishing: "Phishing & Spoofing",
   techsupport: "Tech Support",
@@ -100,7 +109,6 @@ async function fetchTable(tableName) {
   return res.json();
 }
 
-// Custom dot — colour by difficulty, shape by age range
 function CustomDot({ cx, cy, payload }) {
   const color = DIFF_COLORS[payload.difficulty] ?? "#888";
   const shape = AGE_SHAPES[payload.ageRange] ?? "circle";
@@ -284,14 +292,12 @@ export default function AnalyticsPage({ readScriptRef }) {
       </PageWrapper>
     );
 
-  // ── Filtered answers ────────────────────────────────────────────────────────
   const filtered = answers.filter((a) => {
     if (selDifficulty !== "all" && a.difficulty !== selDifficulty) return false;
     if (selAge !== "all" && a.age_range !== selAge) return false;
     return true;
   });
 
-  // ── Filtered sessions (for scatter + leaderboard) ───────────────────────────
   const filteredSessions = sessions.filter((sess) => {
     if (selDifficulty !== "all" && sess.difficulty !== selDifficulty)
       return false;
@@ -299,7 +305,6 @@ export default function AnalyticsPage({ readScriptRef }) {
     return true;
   });
 
-  // ── Summary metrics ─────────────────────────────────────────────────────────
   const totalAnswers = filtered.length;
   const totalSessions = sessions.length;
   const completedSess = sessions.filter((s) => s.completed).length;
@@ -309,7 +314,7 @@ export default function AnalyticsPage({ readScriptRef }) {
       )
     : 0;
 
-  // ── Scatter data — uses filteredSessions ────────────────────────────────────
+  // ── Scatter ─────────────────────────────────────────────────────────────────
   const scatterData = filteredSessions
     .filter((sess) => sess.completed && sess.total_time != null)
     .map((sess) => {
@@ -326,16 +331,15 @@ export default function AnalyticsPage({ readScriptRef }) {
       };
     });
 
-  // Group by age range for Scatter series
   const byAge = {};
   scatterData.forEach((d) => {
     if (!byAge[d.ageRange]) byAge[d.ageRange] = [];
     byAge[d.ageRange].push(d);
   });
 
-  // ── Leaderboard — uses filteredSessions, calculates accuracy inline ─────────
-  const buildLeaderboard = (diff) => {
-    return filteredSessions
+  // ── Leaderboard ──────────────────────────────────────────────────────────────
+  const buildLeaderboard = (diff) =>
+    filteredSessions
       .filter(
         (sess) =>
           sess.completed && sess.total_time != null && sess.difficulty === diff,
@@ -346,14 +350,15 @@ export default function AnalyticsPage({ readScriptRef }) {
         );
         const total = sessAnswers.length;
         const correct = sessAnswers.filter((a) => a.correct).length;
-        const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-        return { ...sess, accuracy };
+        return {
+          ...sess,
+          accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
+        };
       })
       .sort((a, b) => b.accuracy - a.accuracy || a.total_time - b.total_time)
       .slice(0, 3);
-  };
 
-  // ── Bar chart data ──────────────────────────────────────────────────────────
+  // ── Bar chart data ────────────────────────────────────────────────────────────
   const scamGroups = {};
   filtered.forEach((a) => {
     if (!scamGroups[a.scam_id])
@@ -413,7 +418,40 @@ export default function AnalyticsPage({ readScriptRef }) {
       color: d === "easy" ? GREEN : d === "medium" ? ORANGE : RED,
     }));
 
-  const difficulties = [...new Set(answers.map((a) => a.difficulty))].sort();
+  // ── Hard mode flag data ──────────────────────────────────────────────────────
+  // Only answers with flags_correct/flags_missed/false_positives populated (hard mode, post May 8)
+  const hardAnswers = filtered.filter(
+    (a) =>
+      a.difficulty === "hard" &&
+      a.flags_correct != null &&
+      a.flags_missed != null &&
+      a.false_positives != null,
+  );
+
+  // Group by scam — total flags correct, missed, false positives across all sessions
+  const flagGroups = {};
+  hardAnswers.forEach((a) => {
+    if (!flagGroups[a.scam_id])
+      flagGroups[a.scam_id] = { correct: [], missed: [], fp: [] };
+    flagGroups[a.scam_id].correct.push(a.flags_correct);
+    flagGroups[a.scam_id].missed.push(a.flags_missed);
+    flagGroups[a.scam_id].fp.push(a.false_positives);
+  });
+
+  const flagData = Object.entries(flagGroups).map(([id, g]) => ({
+    name: SCAM_NAMES[id] ?? id,
+    flagsCorrect: g.correct.reduce((s, v) => s + v, 0),
+    flagsMissed: g.missed.reduce((s, v) => s + v, 0),
+    falsePositives: g.fp.reduce((s, v) => s + v, 0),
+    medianCorrect: median(g.correct),
+    medianMissed: median(g.missed),
+    medianFP: median(g.fp),
+    sessions: g.correct.length,
+  }));
+
+  const difficulties = ["easy", "medium", "hard"].filter((d) =>
+    answers.some((a) => a.difficulty === d),
+  );
   const ageRanges = AGE_ORDER.filter((a) =>
     answers.some((r) => r.age_range === a),
   );
@@ -423,7 +461,7 @@ export default function AnalyticsPage({ readScriptRef }) {
       <h1 style={s.pageTitle}>Research Dashboard</h1>
       <p style={s.pageSubtitle}>Live data from Supabase. Reload to refresh.</p>
 
-      {/* ── Filters — applied to all charts, scatter, and leaderboard ── */}
+      {/* Filters */}
       <div style={s.filterRow}>
         <div style={s.filterGroup}>
           <label style={s.filterLabel}>Difficulty</label>
@@ -460,7 +498,7 @@ export default function AnalyticsPage({ readScriptRef }) {
         </p>
       </div>
 
-      {/* ── Summary metrics ── */}
+      {/* Summary metrics */}
       <div style={s.metricsRow}>
         <Metric label='Total Answers' value={totalAnswers.toLocaleString()} />
         <Metric label='Total Sessions' value={totalSessions} />
@@ -472,7 +510,7 @@ export default function AnalyticsPage({ readScriptRef }) {
         />
       </div>
 
-      {/* ── Scatter plot ── */}
+      {/* Scatter */}
       <SectionTitle>Time vs Accuracy — All Completed Sessions</SectionTitle>
       <p style={s.chartCaption}>
         Each dot is one completed session. Filtered by selections above.
@@ -570,8 +608,6 @@ export default function AnalyticsPage({ readScriptRef }) {
               </ScatterChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Side legend */}
           <div
             style={{
               flexShrink: 0,
@@ -688,7 +724,7 @@ export default function AnalyticsPage({ readScriptRef }) {
 
       <Divider />
 
-      {/* ── Leaderboard — uses filteredSessions ── */}
+      {/* Leaderboard */}
       <SectionTitle>Leaderboard — Fastest Accurate Completions</SectionTitle>
       <p style={s.chartCaption}>
         Top 3 per difficulty. Filtered by selections above. Ranked by accuracy
@@ -771,7 +807,7 @@ export default function AnalyticsPage({ readScriptRef }) {
 
       <Divider />
 
-      {/* ── Chart 1: Accuracy by scam type ── */}
+      {/* Chart 1: Accuracy by scam */}
       <SectionTitle>Accuracy by Scam Type</SectionTitle>
       <p style={s.chartCaption}>
         Percentage correct per scam. Sorted lowest to highest.
@@ -821,7 +857,7 @@ export default function AnalyticsPage({ readScriptRef }) {
 
       <Divider />
 
-      {/* ── Chart 2: Accuracy by age range ── */}
+      {/* Chart 2: Accuracy by age */}
       <SectionTitle>Accuracy by Age Range</SectionTitle>
       <p style={s.chartCaption}>
         Percentage correct broken down by respondent age group.
@@ -864,7 +900,7 @@ export default function AnalyticsPage({ readScriptRef }) {
 
       <Divider />
 
-      {/* ── Chart 3: Avg time by scam ── */}
+      {/* Chart 3: Avg time by scam */}
       <SectionTitle>Average Time per Question by Scam Type</SectionTitle>
       <p style={s.chartCaption}>
         Longer times may indicate more difficult content.
@@ -895,7 +931,7 @@ export default function AnalyticsPage({ readScriptRef }) {
 
       <Divider />
 
-      {/* ── Chart 4: Avg time by difficulty ── */}
+      {/* Chart 4: Avg time by difficulty */}
       <SectionTitle>Average Time per Question by Difficulty</SectionTitle>
       <p style={s.chartCaption}>
         Longer times may indicate more difficult content.
@@ -924,6 +960,208 @@ export default function AnalyticsPage({ readScriptRef }) {
           </BarChart>
         </ResponsiveContainer>
       ) : null}
+
+      <Divider />
+
+      {/* Chart 5: Hard mode flag analysis */}
+      <SectionTitle>
+        Hard Mode — Flags Correct vs Missed vs False Positives
+      </SectionTitle>
+      <p style={s.chartCaption}>
+        Total counts per scam type across all hard mode sessions. Shows how many
+        red flags were correctly identified, missed, and how many false
+        positives were highlighted.
+      </p>
+      <div
+        style={{
+          background: "#FFF8E1",
+          border: "1.5px solid #C8952A",
+          borderRadius: 10,
+          padding: "12px 16px",
+          marginBottom: 16,
+          fontSize: 13,
+          color: "#7A4A00",
+          fontFamily: "sans-serif",
+          lineHeight: 1.6,
+        }}
+      >
+        ⚠️ This data started being collected on <strong>May 8, 2025</strong>.
+        Hard mode sessions completed before this date will not appear in this
+        chart.
+      </div>
+      {flagData.length === 0 ? (
+        <p style={s.empty}>
+          No hard mode flag data yet — this chart will populate as hard mode
+          sessions are completed.
+        </p>
+      ) : (
+        <>
+          {/* Total counts chart */}
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: MUTED,
+              margin: "0 0 10px",
+              fontFamily: "sans-serif",
+            }}
+          >
+            Totals across all sessions
+          </p>
+          <ResponsiveContainer width='100%' height={300}>
+            <BarChart
+              data={flagData}
+              layout='vertical'
+              margin={{ left: 10, right: 60, top: 10, bottom: 10 }}
+            >
+              <CartesianGrid strokeDasharray='3 3' horizontal={false} />
+              <XAxis type='number' tick={s.axisTick} />
+              <YAxis
+                type='category'
+                dataKey='name'
+                width={160}
+                tick={s.axisTick}
+              />
+              <Tooltip formatter={(v, name) => [v, name]} />
+              <Bar
+                dataKey='flagsCorrect'
+                name='Flags correct'
+                fill={GREEN}
+                radius={[0, 3, 3, 0]}
+              >
+                <LabelList
+                  dataKey='flagsCorrect'
+                  position='right'
+                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
+                />
+              </Bar>
+              <Bar
+                dataKey='flagsMissed'
+                name='Flags missed'
+                fill={ORANGE}
+                radius={[0, 3, 3, 0]}
+              >
+                <LabelList
+                  dataKey='flagsMissed'
+                  position='right'
+                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
+                />
+              </Bar>
+              <Bar
+                dataKey='falsePositives'
+                name='False positives'
+                fill={RED}
+                radius={[0, 3, 3, 0]}
+              >
+                <LabelList
+                  dataKey='falsePositives'
+                  position='right'
+                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* Median chart */}
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: MUTED,
+              margin: "24px 0 10px",
+              fontFamily: "sans-serif",
+            }}
+          >
+            Median per session
+          </p>
+          <ResponsiveContainer width='100%' height={300}>
+            <BarChart
+              data={flagData}
+              layout='vertical'
+              margin={{ left: 10, right: 60, top: 10, bottom: 10 }}
+            >
+              <CartesianGrid strokeDasharray='3 3' horizontal={false} />
+              <XAxis type='number' tick={s.axisTick} allowDecimals={false} />
+              <YAxis
+                type='category'
+                dataKey='name'
+                width={160}
+                tick={s.axisTick}
+              />
+              <Tooltip formatter={(v, name) => [v, name]} />
+              <Bar
+                dataKey='medianCorrect'
+                name='Median correct'
+                fill={GREEN}
+                radius={[0, 3, 3, 0]}
+              >
+                <LabelList
+                  dataKey='medianCorrect'
+                  position='right'
+                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
+                />
+              </Bar>
+              <Bar
+                dataKey='medianMissed'
+                name='Median missed'
+                fill={ORANGE}
+                radius={[0, 3, 3, 0]}
+              >
+                <LabelList
+                  dataKey='medianMissed'
+                  position='right'
+                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
+                />
+              </Bar>
+              <Bar
+                dataKey='medianFP'
+                name='Median false positives'
+                fill={RED}
+                radius={[0, 3, 3, 0]}
+              >
+                <LabelList
+                  dataKey='medianFP'
+                  position='right'
+                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* Legend */}
+          <div
+            style={{
+              display: "flex",
+              gap: 20,
+              marginTop: 12,
+              flexWrap: "wrap",
+              fontFamily: "sans-serif",
+              fontSize: 13,
+            }}
+          >
+            {[
+              { color: GREEN, label: "Flags correct" },
+              { color: ORANGE, label: "Flags missed" },
+              { color: RED, label: "False positives" },
+            ].map(({ color, label }) => (
+              <div
+                key={label}
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 3,
+                    background: color,
+                  }}
+                />
+                <span style={{ color: "#333" }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <p style={s.footer}>
         All data is anonymous. No personal information is stored or displayed.
