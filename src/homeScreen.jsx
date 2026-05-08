@@ -76,20 +76,10 @@ const DIFFICULTIES = [
 ];
 
 // ─── Speech utility ───────────────────────────────────────────────────────────
-// Reads speed from localStorage so it stays in sync with the NavBar controls.
-
-let _lastSpokenText = "";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
-  // Toggle — if already speaking the same text, stop it
-  if (window.speechSynthesis.speaking && _lastSpokenText === text) {
-    window.speechSynthesis.cancel();
-    _lastSpokenText = "";
-    return;
-  }
   window.speechSynthesis.cancel();
-  _lastSpokenText = text;
   const rate = (() => {
     try {
       const s = localStorage.getItem("scamshield_speech_speed");
@@ -176,15 +166,6 @@ export default function HomeScreen({ onStart, readScriptRef }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [starting, setStarting] = useState(false);
 
-  // Auto-read: reads preference from localStorage (set by NavBar audio controls)
-  const isAutoRead = () => {
-    try {
-      return localStorage.getItem("scamshield_auto_read") === "true";
-    } catch {
-      return false;
-    }
-  };
-
   // Register current page script with NavBar so the 🔊 button knows what to read
   useEffect(() => {
     if (!readScriptRef) return;
@@ -195,26 +176,6 @@ export default function HomeScreen({ onStart, readScriptRef }) {
         buildHomeScript(ageRange, selectedDifficulty);
     }
   }, [screen, ageRange, consentGiven, selectedDifficulty]);
-
-  // Auto-read on landing screen load
-  useEffect(() => {
-    if (!isAutoRead()) return;
-    const timer = setTimeout(
-      () => speak(buildLandingScript(ageRange, consentGiven)),
-      1500,
-    );
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Auto-read when switching to home screen
-  useEffect(() => {
-    if (screen !== "home" || !isAutoRead()) return;
-    const timer = setTimeout(
-      () => speak(buildHomeScript(ageRange, selectedDifficulty)),
-      1500,
-    );
-    return () => clearTimeout(timer);
-  }, [screen]);
 
   // ── Screen: Landing ─────────────────────────────────────────────────────────
   if (screen === "landing") {
