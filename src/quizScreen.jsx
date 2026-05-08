@@ -272,6 +272,7 @@ export default function QuizScreen({
   const [scamScores, setScamScores] = useState([]);
   const [currentScamScore, setCurrentScamScore] = useState(0);
   const currentScamScoreRef = useRef(0);
+  const currentFalsePosRef = useREf(0);
 
   const questionStartTime = useRef(Date.now());
   const quizStartTime = useRef(Date.now());
@@ -401,6 +402,7 @@ export default function QuizScreen({
       allFlags.length + (hardContent.senderIsFlag ? 1 : 0) - correctHits;
     setCurrentScamScore((s) => s + score);
     currentScamScoreRef.current += score;
+    currentFalsePosRef.current = falsePositives;
     setAnswersRevealed(true);
     for (const segment of hardContent.body) {
       if (!segment.isFlag) continue;
@@ -434,6 +436,8 @@ export default function QuizScreen({
         scamIcon: currentScam.icon,
         correct: currentScamScoreRef.current,
         total,
+        falsePositives: isHardMode ? currentFalsePosRef.current : 0,
+        isHardMode,
       };
       const updatedScores = [...scamScores, newScore];
       setScamScores(updatedScores);
@@ -449,6 +453,7 @@ export default function QuizScreen({
         setQuestionIndex(0);
         setCurrentScamScore(0);
         currentScamScoreRef.current = 0;
+        currentFalsePosRef.current = 0;
         setScreen("intro");
       }
     } else {
@@ -811,6 +816,19 @@ export default function QuizScreen({
                   }}
                 />
               </div>
+              {s.isHardMode && s.falsePositives > 0 && (
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "#B5621A",
+                    margin: "4px 0 0",
+                    fontFamily: "sans-serif",
+                  }}
+                >
+                  ⚠️ {s.falsePositives} false positive
+                  {s.falsePositives > 1 ? "s" : ""} reduced your score
+                </p>
+              )}
             </div>
           );
         })}
