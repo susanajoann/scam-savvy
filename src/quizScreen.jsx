@@ -82,26 +82,11 @@ function getSpeechRate() {
   }
 }
 
-// Reads the auto-read preference saved by the home screen.
-const AUTO_READ_KEY = "scamshield_auto_read";
-
-function getAutoRead() {
-  try {
-    return localStorage.getItem(AUTO_READ_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
 // ─── Speech utility ─────────────────────────────────────────────────────────
-// Tracks the last text spoken so speed changes can restart it.
-let _lastSpokenText = "";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  // Remember what was spoken so speed changes can restart it
-  _lastSpokenText = text;
 
   // Split at sentence-ending punctuation to create natural pauses.
   const chunks = text
@@ -121,10 +106,6 @@ function speak(text) {
     }
     window.speechSynthesis.speak(utterance);
   });
-}
-
-function stopSpeech() {
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 // ─── Speech builders ──────────────────────────────────────────────────────────
@@ -157,15 +138,6 @@ function buildFeedbackScript(correct, explanation, correctOptionText) {
     ? TEXT_CORRECT.replace("✓ ", "")
     : TEXT_NOT_QUITE.replace("✗ ", "");
   return `${result} The correct answer is: ${correctOptionText}. ${explanation}`;
-}
-
-function buildHardRevealScript(found, total, missed) {
-  const hintAfter = TEXT_HARD_HINT_AFTER(found, total);
-  const missedText =
-    missed > 0
-      ? `You missed ${missed} red flag${missed > 1 ? "s" : ""}.`
-      : "You found all the red flags!";
-  return `${hintAfter} ${missedText}`;
 }
 
 function buildResultsScript(
@@ -299,10 +271,6 @@ export default function QuizScreen({
   const [senderHighlighted, setSenderHighlighted] = useState(false);
   const [scamScores, setScamScores] = useState([]);
   const [currentScamScore, setCurrentScamScore] = useState(0);
-  // Ref that always holds the latest scamScores so the results auto-read
-  // useEffect can read the correct value immediately after setScreen("results"),
-  // before the state update has committed to a re-render.
-  const scamScoresRef = useRef([]);
 
   const questionStartTime = useRef(Date.now());
   const quizStartTime = useRef(Date.now());
@@ -311,87 +279,6 @@ export default function QuizScreen({
   const currentScam = scams[scamIndex] ?? null;
   const questions = currentScam && !isHardMode ? currentScam[difficulty] : null;
   const currentQuestion = questions ? (questions[questionIndex] ?? null) : null;
-
-  // Keep ref in sync with state so the results useEffect always has latest scores
-  useEffect(() => {
-    scamScoresRef.current = scamScores;
-  }, [scamScores]);
-
-  useEffect(() => {
-    stopSpeech();
-  }, [screen, scamIndex, questionIndex]);
-
-  // Auto-read: when auto-read is on, speak content after a 1.5s delay whenever
-  // the screen, scam, or question changes. The delay lets the screen render first.
-  useEffect(() => {
-    if (!getAutoRead()) return;
-
-    let text = null;
-
-    if (screen === "intro" && currentScam) {
-      const isFirst = scamIndex === 0;
-      // buildIntroScript reads from scamData directly — same as the JSX
-      text = buildIntroScript(currentScam, isFirst, isHardMode);
-    }
-
-    if (
-      screen === "question" &&
-      !isHardMode &&
-      currentQuestion &&
-      shuffledOptions.length > 0
-    ) {
-      // buildQuestionScript reads from currentQuestion.question and options
-      // Only fires once shuffledOptions has been populated
-      text = buildQuestionScript(currentQuestion, shuffledOptions);
-    }
-
-    if (screen === "question" && isHardMode && currentScam) {
-      const hardContent = currentScam.hard;
-      const bodyText = hardContent.body.map((s) => s.text).join(" ");
-      text = `${hardContent.instruction} The message reads: ${bodyText}`;
-    }
-
-    if (!text) return;
-    const timer = setTimeout(() => speak(text), 1500);
-    return () => clearTimeout(timer);
-  }, [screen, scamIndex, questionIndex, shuffledOptions.length]);
-
-  // Auto-read: speak feedback automatically after the user checks an answer
-  useEffect(() => {
-    if (!getAutoRead()) return;
-    if (!showFeedback || !currentQuestion) return;
-    const correctOption = shuffledOptions.find((o) => o.correct);
-    const text = buildFeedbackScript(
-      selectedOption?.correct,
-      currentQuestion.explanation,
-      correctOption?.text ?? "",
-    );
-    const timer = setTimeout(() => speak(text), 800);
-    return () => clearTimeout(timer);
-  }, [showFeedback]);
-
-  // Auto-read: speak results automatically when the results screen appears.
-  // Uses scamScoresRef.current so it reads the correct value immediately,
-  // before the setScamScores state update has committed.
-  useEffect(() => {
-    if (!getAutoRead()) return;
-    if (screen !== "results") return;
-    const scores = scamScoresRef.current;
-    if (scores.length === 0) return;
-    const totalCorrect = scores.reduce((sum, s) => sum + s.correct, 0);
-    const totalQuestions = scores.reduce((sum, s) => sum + s.total, 0);
-    const overallPct = totalQuestions
-      ? Math.round((totalCorrect / totalQuestions) * 100)
-      : 0;
-    const text = buildResultsScript(
-      overallPct,
-      totalCorrect,
-      totalQuestions,
-      scores,
-    );
-    const timer = setTimeout(() => speak(text), 1500);
-    return () => clearTimeout(timer);
-  }, [screen]);
 
   useEffect(() => {
     if (!isHardMode && currentQuestion?.options) {
@@ -510,9 +397,6 @@ export default function QuizScreen({
       allFlags.length + (hardContent.senderIsFlag ? 1 : 0) - correctHits;
     setCurrentScamScore((s) => s + score);
     setAnswersRevealed(true);
-    if (!getAutoRead()) {
-      speak(buildHardRevealScript(correctHits, allFlags.length, missed));
-    }
     for (const segment of hardContent.body) {
       if (!segment.isFlag) continue;
       await recordAnswer(sessionId, {
@@ -546,9 +430,6 @@ export default function QuizScreen({
         total,
       };
       const updatedScores = [...scamScores, newScore];
-      // Update the ref immediately so the results auto-read useEffect
-      // can read the correct scores before setScamScores commits.
-      scamScoresRef.current = updatedScores;
       setScamScores(updatedScores);
       const isLastScam = scamIndex + 1 >= scams.length;
       if (isLastScam) {
