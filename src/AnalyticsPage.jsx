@@ -438,16 +438,21 @@ export default function AnalyticsPage({ readScriptRef }) {
     flagGroups[a.scam_id].fp.push(a.false_positives);
   });
 
-  const flagData = Object.entries(flagGroups).map(([id, g]) => ({
-    name: SCAM_NAMES[id] ?? id,
-    flagsCorrect: g.correct.reduce((s, v) => s + v, 0),
-    flagsMissed: g.missed.reduce((s, v) => s + v, 0),
-    falsePositives: g.fp.reduce((s, v) => s + v, 0),
-    medianCorrect: median(g.correct),
-    medianMissed: median(g.missed),
-    medianFP: median(g.fp),
-    sessions: g.correct.length,
-  }));
+  const flagData = Object.entries(flagGroups).map(([id, g]) => {
+    const total = g.correct.length;
+    const allCorrect = g.correct.filter(
+      (v, i) => v > 0 && g.missed[i] === 0 && g.fp[i] === 0,
+    ).length;
+    const hadMissed = g.missed.filter((v) => v > 0).length;
+    const hadFP = g.fp.filter((v) => v > 0).length;
+    return {
+      name: SCAM_NAMES[id] ?? id,
+      allCorrectPct: total ? Math.round((allCorrect / total) * 100) : 0,
+      missedPct: total ? Math.round((hadMissed / total) * 100) : 0,
+      falsePositivePct: total ? Math.round((hadFP / total) * 100) : 0,
+      sessions: total,
+    };
+  });
 
   const difficulties = ["easy", "medium", "hard"].filter((d) =>
     answers.some((a) => a.difficulty === d),
@@ -968,9 +973,10 @@ export default function AnalyticsPage({ readScriptRef }) {
         Hard Mode — Flags Correct vs Missed vs False Positives
       </SectionTitle>
       <p style={s.chartCaption}>
-        Total counts per scam type across all hard mode sessions. Shows how many
-        red flags were correctly identified, missed, and how many false
-        positives were highlighted.
+        Percentage of hard mode sessions per scam where users got all flags
+        correct, missed at least one flag, or highlighted at least one false
+        positive. Categories can overlap — a session can both miss a flag and
+        have false positives.
       </p>
       <div
         style={{
@@ -996,18 +1002,6 @@ export default function AnalyticsPage({ readScriptRef }) {
         </p>
       ) : (
         <>
-          {/* Total counts chart */}
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: MUTED,
-              margin: "0 0 10px",
-              fontFamily: "sans-serif",
-            }}
-          >
-            Totals across all sessions
-          </p>
           <ResponsiveContainer width='100%' height={300}>
             <BarChart
               data={flagData}
@@ -1015,113 +1009,55 @@ export default function AnalyticsPage({ readScriptRef }) {
               margin={{ left: 10, right: 60, top: 10, bottom: 10 }}
             >
               <CartesianGrid strokeDasharray='3 3' horizontal={false} />
-              <XAxis type='number' tick={s.axisTick} />
+              <XAxis
+                type='number'
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tick={s.axisTick}
+              />
               <YAxis
                 type='category'
                 dataKey='name'
                 width={160}
                 tick={s.axisTick}
               />
-              <Tooltip formatter={(v, name) => [v, name]} />
+              <Tooltip formatter={(v, name) => [`${v}%`, name]} />
               <Bar
-                dataKey='flagsCorrect'
-                name='Flags correct'
+                dataKey='allCorrectPct'
+                name='Got all flags correct'
                 fill={GREEN}
                 radius={[0, 3, 3, 0]}
               >
                 <LabelList
-                  dataKey='flagsCorrect'
+                  dataKey='allCorrectPct'
                   position='right'
+                  formatter={(v) => `${v}%`}
                   style={{ fontSize: 12, fontFamily: "sans-serif" }}
                 />
               </Bar>
               <Bar
-                dataKey='flagsMissed'
-                name='Flags missed'
+                dataKey='missedPct'
+                name='Missed at least 1 flag'
                 fill={ORANGE}
                 radius={[0, 3, 3, 0]}
               >
                 <LabelList
-                  dataKey='flagsMissed'
+                  dataKey='missedPct'
                   position='right'
+                  formatter={(v) => `${v}%`}
                   style={{ fontSize: 12, fontFamily: "sans-serif" }}
                 />
               </Bar>
               <Bar
-                dataKey='falsePositives'
-                name='False positives'
+                dataKey='falsePositivePct'
+                name='Had false positives'
                 fill={RED}
                 radius={[0, 3, 3, 0]}
               >
                 <LabelList
-                  dataKey='falsePositives'
+                  dataKey='falsePositivePct'
                   position='right'
-                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-
-          {/* Median chart */}
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: MUTED,
-              margin: "24px 0 10px",
-              fontFamily: "sans-serif",
-            }}
-          >
-            Median per session
-          </p>
-          <ResponsiveContainer width='100%' height={300}>
-            <BarChart
-              data={flagData}
-              layout='vertical'
-              margin={{ left: 10, right: 60, top: 10, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray='3 3' horizontal={false} />
-              <XAxis type='number' tick={s.axisTick} allowDecimals={false} />
-              <YAxis
-                type='category'
-                dataKey='name'
-                width={160}
-                tick={s.axisTick}
-              />
-              <Tooltip formatter={(v, name) => [v, name]} />
-              <Bar
-                dataKey='medianCorrect'
-                name='Median correct'
-                fill={GREEN}
-                radius={[0, 3, 3, 0]}
-              >
-                <LabelList
-                  dataKey='medianCorrect'
-                  position='right'
-                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
-                />
-              </Bar>
-              <Bar
-                dataKey='medianMissed'
-                name='Median missed'
-                fill={ORANGE}
-                radius={[0, 3, 3, 0]}
-              >
-                <LabelList
-                  dataKey='medianMissed'
-                  position='right'
-                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
-                />
-              </Bar>
-              <Bar
-                dataKey='medianFP'
-                name='Median false positives'
-                fill={RED}
-                radius={[0, 3, 3, 0]}
-              >
-                <LabelList
-                  dataKey='medianFP'
-                  position='right'
+                  formatter={(v) => `${v}%`}
                   style={{ fontSize: 12, fontFamily: "sans-serif" }}
                 />
               </Bar>
@@ -1140,9 +1076,9 @@ export default function AnalyticsPage({ readScriptRef }) {
             }}
           >
             {[
-              { color: GREEN, label: "Flags correct" },
-              { color: ORANGE, label: "Flags missed" },
-              { color: RED, label: "False positives" },
+              { color: GREEN, label: "Got all flags correct" },
+              { color: ORANGE, label: "Missed at least 1 flag" },
+              { color: RED, label: "Had false positives" },
             ].map(({ color, label }) => (
               <div
                 key={label}

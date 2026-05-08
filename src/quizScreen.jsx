@@ -365,16 +365,13 @@ export default function QuizScreen({
     setShowFeedback(true);
     await recordAnswer(sessionId, {
       scamId: currentScam.id,
-      questionId: currentScam.hard.id,
+      questionId: currentQuestion.id,
       ageRange,
       difficulty,
-      correct: score > 0,
+      correct,
       timeTaken,
       startedAt,
       finishedAt,
-      flagsCorrect: correctHits,
-      flagsMissed: missed,
-      falsePositives,
     });
   };
 
@@ -407,19 +404,19 @@ export default function QuizScreen({
     currentScamScoreRef.current += score;
     currentFalsePosRef.current = falsePositives;
     setAnswersRevealed(true);
-    for (const segment of hardContent.body) {
-      if (!segment.isFlag) continue;
-      await recordAnswer(sessionId, {
-        scamId: currentScam.id,
-        questionId: segment.id,
-        ageRange,
-        difficulty,
-        correct: !!highlighted[segment.id],
-        timeTaken,
-        startedAt,
-        finishedAt,
-      });
-    }
+    await recordAnswer(sessionId, {
+      scamId: currentScam.id,
+      questionId: currentScam.hard.id,
+      ageRange,
+      difficulty,
+      correct: score > 0,
+      timeTaken,
+      startedAt,
+      finishedAt,
+      flagsCorrect: correctHits,
+      flagsMissed: missed,
+      falsePositives,
+    });
   };
 
   // ── Navigation ────────────────────────────────────────────────────────────
