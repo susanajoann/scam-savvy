@@ -271,6 +271,7 @@ export default function QuizScreen({
   const [senderHighlighted, setSenderHighlighted] = useState(false);
   const [scamScores, setScamScores] = useState([]);
   const [currentScamScore, setCurrentScamScore] = useState(0);
+  const currentScamScoreRef = useRef(0);
 
   const questionStartTime = useRef(Date.now());
   const quizStartTime = useRef(Date.now());
@@ -356,7 +357,10 @@ export default function QuizScreen({
     const timeTaken = Math.round(
       (Date.now() - questionStartTime.current) / 1000,
     );
-    if (correct) setCurrentScamScore((s) => s + 1);
+    if (correct) {
+      setCurrentScamScore((s) => s + 1);
+      currentScamScoreRef.current += 1;
+    }
     setShowFeedback(true);
     await recordAnswer(sessionId, {
       scamId: currentScam.id,
@@ -396,6 +400,7 @@ export default function QuizScreen({
     const missed =
       allFlags.length + (hardContent.senderIsFlag ? 1 : 0) - correctHits;
     setCurrentScamScore((s) => s + score);
+    currentScamScoreRef.current += score;
     setAnswersRevealed(true);
     for (const segment of hardContent.body) {
       if (!segment.isFlag) continue;
@@ -420,13 +425,14 @@ export default function QuizScreen({
       : questionIndex + 1 >= questions.length;
     if (isLastQuestion) {
       const total = isHardMode
-        ? currentScam.hard.body.filter((s) => s.isFlag).length
+        ? currentScam.hard.body.filter((s) => s.isFlag).length +
+          (currentScam.hard.senderIsFlag ? 1 : 0)
         : questions.length;
       const newScore = {
         scamId: currentScam.id,
         scamName: currentScam.name,
         scamIcon: currentScam.icon,
-        correct: currentScamScore,
+        correct: currentScamScoreRef.current,
         total,
       };
       const updatedScores = [...scamScores, newScore];
@@ -442,6 +448,7 @@ export default function QuizScreen({
         setScamIndex((i) => i + 1);
         setQuestionIndex(0);
         setCurrentScamScore(0);
+        currentScamScoreRef.current = 0;
         setScreen("intro");
       }
     } else {
