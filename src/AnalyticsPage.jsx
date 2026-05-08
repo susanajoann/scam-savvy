@@ -1027,49 +1027,31 @@ export default function AnalyticsPage({ readScriptRef }) {
                   fontSize: 13,
                 }}
               />
-              <Tooltip formatter={(v, name) => [`${v}%`, name]} />
+              <Tooltip
+                formatter={(v, name) => [`${v}%`, name]}
+                contentStyle={{ fontSize: 13, fontFamily: "sans-serif" }}
+              />
               <Bar
                 dataKey='allCorrectPct'
                 name='Got all flags correct'
                 fill={GREEN}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
-              >
-                <LabelList
-                  dataKey='allCorrectPct'
-                  position='right'
-                  formatter={(v) => `${v}%`}
-                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
-                />
-              </Bar>
+              ></Bar>
               <Bar
                 dataKey='missedPct'
                 name='Missed at least 1 flag'
                 fill={ORANGE}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
-              >
-                <LabelList
-                  dataKey='missedPct'
-                  position='right'
-                  formatter={(v) => `${v}%`}
-                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
-                />
-              </Bar>
+              ></Bar>
               <Bar
                 dataKey='falsePositivePct'
                 name='Had false positives'
                 fill={RED}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
-              >
-                <LabelList
-                  dataKey='falsePositivePct'
-                  position='right'
-                  formatter={(v) => `${v}%`}
-                  style={{ fontSize: 12, fontFamily: "sans-serif" }}
-                />
-              </Bar>
+              ></Bar>
             </BarChart>
           </ResponsiveContainer>
 
