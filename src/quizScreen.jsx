@@ -272,7 +272,7 @@ export default function QuizScreen({
   const [scamScores, setScamScores] = useState([]);
   const [currentScamScore, setCurrentScamScore] = useState(0);
   const currentScamScoreRef = useRef(0);
-  const currentFalsePosRef = useREf(0);
+  const currentFalsePosRef = useRef(0);
 
   const questionStartTime = useRef(Date.now());
   const quizStartTime = useRef(Date.now());
