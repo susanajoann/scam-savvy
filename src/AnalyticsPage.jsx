@@ -1005,21 +1005,27 @@ export default function AnalyticsPage({ readScriptRef }) {
           <ResponsiveContainer width='100%' height={300}>
             <BarChart
               data={flagData}
-              layout='vertical'
-              margin={{ left: 10, right: 60, top: 10, bottom: 10 }}
+              margin={{ left: 10, right: 20, top: 10, bottom: 60 }}
             >
-              <CartesianGrid strokeDasharray='3 3' horizontal={false} />
+              <CartesianGrid strokeDasharray='3 3' vertical={false} />
               <XAxis
-                type='number'
+                dataKey='name'
+                tick={{ ...s.axisTick, fontSize: 11 }}
+                interval={0}
+                angle={-30}
+                textAnchor='end'
+                height={70}
+              />
+              <YAxis
                 domain={[0, 100]}
                 tickFormatter={(v) => `${v}%`}
                 tick={s.axisTick}
-              />
-              <YAxis
-                type='category'
-                dataKey='name'
-                width={160}
-                tick={s.axisTick}
+                label={{
+                  value: "% of sessions",
+                  angle: -90,
+                  position: "insideLeft",
+                  fontSize: 13,
+                }}
               />
               <Tooltip formatter={(v, name) => [`${v}%`, name]} />
               <Bar
