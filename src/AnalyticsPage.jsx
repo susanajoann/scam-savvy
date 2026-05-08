@@ -1033,6 +1033,7 @@ export default function AnalyticsPage({ readScriptRef }) {
                 name='Got all flags correct'
                 fill={GREEN}
                 radius={[0, 3, 3, 0]}
+                minPointSize={3}
               >
                 <LabelList
                   dataKey='allCorrectPct'
@@ -1046,6 +1047,7 @@ export default function AnalyticsPage({ readScriptRef }) {
                 name='Missed at least 1 flag'
                 fill={ORANGE}
                 radius={[0, 3, 3, 0]}
+                minPointSize={3}
               >
                 <LabelList
                   dataKey='missedPct'
@@ -1059,6 +1061,7 @@ export default function AnalyticsPage({ readScriptRef }) {
                 name='Had false positives'
                 fill={RED}
                 radius={[0, 3, 3, 0]}
+                minPointSize={3}
               >
                 <LabelList
                   dataKey='falsePositivePct'
