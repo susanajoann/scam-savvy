@@ -587,7 +587,7 @@ export default function AnalyticsPage({ readScriptRef }) {
                       >
                         <p
                           style={{
-                            margin: 0,
+                            margin: "0 0 4px",
                             fontWeight: 600,
                             color: DIFF_COLORS[d.difficulty] ?? PURPLE,
                           }}
@@ -595,13 +595,20 @@ export default function AnalyticsPage({ readScriptRef }) {
                           {d.difficulty?.charAt(0).toUpperCase() +
                             d.difficulty?.slice(1)}
                         </p>
-                        <p style={{ margin: "4px 0 0" }}>
+                        <p style={{ margin: "2px 0 0" }}>
                           Age range: {d.ageRange}
                         </p>
                         <p style={{ margin: "2px 0 0" }}>
                           Time: {formatTime(d.x)}
                         </p>
-                        <p style={{ margin: "2px 0 0" }}>Accuracy: {d.y}%</p>
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            color: accuracyColor(d.y),
+                          }}
+                        >
+                          Accuracy: {d.y}%
+                        </p>
                       </div>
                     );
                   }}
@@ -842,10 +849,40 @@ export default function AnalyticsPage({ readScriptRef }) {
               tick={s.axisTick}
             />
             <Tooltip
-              formatter={(v, n, p) => [
-                `${v}% (${p.payload.correct}/${p.payload.total})`,
-                "Accuracy",
-              ]}
+              content={({ payload, label }) => {
+                if (!payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1.5px solid #C9B8E8",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      fontSize: 13,
+                      fontFamily: "sans-serif",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 4px",
+                        fontWeight: 600,
+                        color: "#3D1580",
+                      }}
+                    >
+                      {d.name}
+                    </p>
+                    <p style={{ margin: 0, color: accuracyColor(d.pct) }}>
+                      Accuracy: {d.pct}%
+                    </p>
+                    <p
+                      style={{ margin: "4px 0 0", fontSize: 11, color: "#999" }}
+                    >
+                      {d.correct}/{d.total} correct
+                    </p>
+                  </div>
+                );
+              }}
             />
             <Bar dataKey='pct' radius={[0, 4, 4, 0]}>
               <LabelList
@@ -885,10 +922,40 @@ export default function AnalyticsPage({ readScriptRef }) {
               tick={s.axisTick}
             />
             <Tooltip
-              formatter={(v, n, p) => [
-                `${v}% (${p.payload.correct}/${p.payload.total})`,
-                "Accuracy",
-              ]}
+              content={({ payload, label }) => {
+                if (!payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1.5px solid #C9B8E8",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      fontSize: 13,
+                      fontFamily: "sans-serif",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 4px",
+                        fontWeight: 600,
+                        color: "#3D1580",
+                      }}
+                    >
+                      {d.name}
+                    </p>
+                    <p style={{ margin: 0, color: accuracyColor(d.pct) }}>
+                      Accuracy: {d.pct}%
+                    </p>
+                    <p
+                      style={{ margin: "4px 0 0", fontSize: 11, color: "#999" }}
+                    >
+                      {d.correct}/{d.total} correct
+                    </p>
+                  </div>
+                );
+              }}
             />
             <Bar dataKey='pct' radius={[4, 4, 0, 0]}>
               <LabelList
