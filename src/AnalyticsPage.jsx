@@ -450,6 +450,9 @@ export default function AnalyticsPage({ readScriptRef }) {
       allCorrectPct: total ? Math.round((allCorrect / total) * 100) : 0,
       missedPct: total ? Math.round((hadMissed / total) * 100) : 0,
       falsePositivePct: total ? Math.round((hadFP / total) * 100) : 0,
+      allCorrectFrac: `${allCorrect}/${total}`,
+      missedFrac: `${hadMissed}/${total}`,
+      fpFrac: `${hadFP}/${total}`,
       sessions: total,
     };
   });
@@ -1028,19 +1031,72 @@ export default function AnalyticsPage({ readScriptRef }) {
                 }}
               />
               <Tooltip
-                formatter={(v, name) => [`${v}%`, name]}
-                contentStyle={{ fontSize: 13, fontFamily: "sans-serif" }}
+                content={({ payload, label }) => {
+                  if (!payload?.length) return null;
+                  return (
+                    <div
+                      style={{
+                        background: "#fff",
+                        border: "1.5px solid #C9B8E8",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        fontSize: 13,
+                        fontFamily: "sans-serif",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: "0 0 6px",
+                          fontWeight: 600,
+                          color: "#3D1580",
+                        }}
+                      >
+                        {label}
+                      </p>
+                      {payload.map((entry, i) => (
+                        <p
+                          key={i}
+                          style={{ margin: "3px 0", color: entry.fill }}
+                        >
+                          {entry.name}: {entry.value}%
+                          <span style={{ color: "#999", marginLeft: 6 }}>
+                            (
+                            {
+                              entry.payload[
+                                entry.dataKey === "allCorrectPct"
+                                  ? "allCorrectFrac"
+                                  : entry.dataKey === "missedPct"
+                                    ? "missedFrac"
+                                    : "fpFrac"
+                              ]
+                            }
+                            )
+                          </span>
+                        </p>
+                      ))}
+                      <p
+                        style={{
+                          margin: "8px 0 0",
+                          fontSize: 11,
+                          color: "#999",
+                        }}
+                      >
+                        Based on {payload[0]?.payload?.sessions} sessions
+                      </p>
+                    </div>
+                  );
+                }}
               />
               <Bar
                 dataKey='allCorrectPct'
-                name='Highlighted all Flags'
+                name='Highlighted All Suspicious Content'
                 fill={GREEN}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
               ></Bar>
               <Bar
                 dataKey='missedPct'
-                name='Missed at least 1 Flag'
+                name='Missed At Least 1 Flag'
                 fill={ORANGE}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
@@ -1067,8 +1123,8 @@ export default function AnalyticsPage({ readScriptRef }) {
             }}
           >
             {[
-              { color: GREEN, label: "Highlighted All Flags" },
-              { color: ORANGE, label: "Missed at least 1 Flag" },
+              { color: GREEN, label: "Highlighted All Suspicious Content" },
+              { color: ORANGE, label: "Missed At Least 1 Flag" },
               { color: RED, label: "Highlighted Non-Suspicious Content" },
             ].map(({ color, label }) => (
               <div
