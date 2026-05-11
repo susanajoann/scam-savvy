@@ -974,9 +974,9 @@ export default function AnalyticsPage({ readScriptRef }) {
       </SectionTitle>
       <p style={s.chartCaption}>
         Percentage of hard mode sessions per scam where users got all flags
-        correct, missed at least one flag, or highlighted at least one false
-        positive. Categories can overlap — a session can both miss a flag and
-        have false positives.
+        correct, missed at least one flag, or highlighted at least one
+        non-suspicious line. Categories can overlap — a session can both miss a
+        flag and have incorrect highlights.
       </p>
       <div
         style={{
@@ -1033,21 +1033,21 @@ export default function AnalyticsPage({ readScriptRef }) {
               />
               <Bar
                 dataKey='allCorrectPct'
-                name='Got all flags correct'
+                name='Highlighted all Flags'
                 fill={GREEN}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
               ></Bar>
               <Bar
                 dataKey='missedPct'
-                name='Missed at least 1 flag'
+                name='Missed at least 1 Flag'
                 fill={ORANGE}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
               ></Bar>
               <Bar
                 dataKey='falsePositivePct'
-                name='Had false positives'
+                name='Highlighted Non-Suspicious Content'
                 fill={RED}
                 radius={[0, 3, 3, 0]}
                 minPointSize={3}
@@ -1067,9 +1067,9 @@ export default function AnalyticsPage({ readScriptRef }) {
             }}
           >
             {[
-              { color: GREEN, label: "Got all flags correct" },
-              { color: ORANGE, label: "Missed at least 1 flag" },
-              { color: RED, label: "Had false positives" },
+              { color: GREEN, label: "Highlighted All Flags" },
+              { color: ORANGE, label: "Missed at least 1 Flag" },
+              { color: RED, label: "Highlighted Non-Suspicious Content" },
             ].map(({ color, label }) => (
               <div
                 key={label}
