@@ -14,7 +14,7 @@ import { createSession } from "./analytics.js";
 
 const TEXT_APP_SUBTITLE = "Know the scam before it knows you";
 const TEXT_TAGLINE =
-  "Learn to recognise the scams most commonly used against older Americans — at your own pace, in plain language.";
+  "Learn to recognize the scams most commonly used against older Americans — at your own pace, in plain language.";
 const TEXT_AGE_LABEL = "Before we begin, what is your age range?";
 const TEXT_AGE_CAPTION =
   "Collected anonymously to help researchers understand which age groups find certain scams most difficult to spot.";
