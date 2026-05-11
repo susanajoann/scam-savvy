@@ -400,9 +400,9 @@ export default function AnalyticsPage({ readScriptRef }) {
     .map(([id, g]) => ({
       name: SCAM_NAMES[id] ?? id,
       avg: Math.round(g.sum / g.count),
+      count: g.count,
     }))
     .sort((a, b) => b.avg - a.avg);
-
   const diffTime = {};
   filtered.forEach((a) => {
     if (!a.time_taken) return;
@@ -416,6 +416,7 @@ export default function AnalyticsPage({ readScriptRef }) {
       name: d.charAt(0).toUpperCase() + d.slice(1),
       avg: Math.round(diffTime[d].sum / diffTime[d].count),
       color: d === "easy" ? GREEN : d === "medium" ? ORANGE : RED,
+      count: diffTime[d].count,
     }));
 
   // ── Hard mode flag data ──────────────────────────────────────────────────────
@@ -922,7 +923,40 @@ export default function AnalyticsPage({ readScriptRef }) {
             <CartesianGrid strokeDasharray='3 3' vertical={false} />
             <XAxis dataKey='name' tick={s.axisTick} />
             <YAxis tickFormatter={(v) => `${v}s`} tick={s.axisTick} />
-            <Tooltip formatter={(v) => [`${v}s`, "Avg. time"]} />
+            <Tooltip
+              content={({ payload, label }) => {
+                if (!payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1.5px solid #C9B8E8",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      fontSize: 13,
+                      fontFamily: "sans-serif",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 4px",
+                        fontWeight: 600,
+                        color: "#3D1580",
+                      }}
+                    >
+                      {label}
+                    </p>
+                    <p style={{ margin: 0 }}>Avg time: {d.avg}s</p>
+                    <p
+                      style={{ margin: "4px 0 0", fontSize: 11, color: "#999" }}
+                    >
+                      Based on {d.count} answers
+                    </p>
+                  </div>
+                );
+              }}
+            />
             <Bar dataKey='avg' fill={PURPLE} radius={[4, 4, 0, 0]}>
               <LabelList
                 dataKey='avg'
@@ -953,7 +987,40 @@ export default function AnalyticsPage({ readScriptRef }) {
             <CartesianGrid strokeDasharray='3 3' vertical={false} />
             <XAxis dataKey='name' tick={s.axisTick} />
             <YAxis tickFormatter={(v) => `${v}s`} tick={s.axisTick} />
-            <Tooltip formatter={(v) => [`${v}s`, "Avg. time"]} />
+            <Tooltip
+              content={({ payload, label }) => {
+                if (!payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1.5px solid #C9B8E8",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      fontSize: 13,
+                      fontFamily: "sans-serif",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 4px",
+                        fontWeight: 600,
+                        color: "#3D1580",
+                      }}
+                    >
+                      {label}
+                    </p>
+                    <p style={{ margin: 0 }}>Avg time: {d.avg}s</p>
+                    <p
+                      style={{ margin: "4px 0 0", fontSize: 11, color: "#999" }}
+                    >
+                      Based on {d.count} answers
+                    </p>
+                  </div>
+                );
+              }}
+            />
             <Bar dataKey='avg' radius={[4, 4, 0, 0]}>
               <LabelList
                 dataKey='avg'
