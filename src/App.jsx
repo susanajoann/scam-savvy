@@ -10,6 +10,9 @@ import HomeScreen from "./homeScreen";
 import QuizScreen from "./quizScreen";
 import AnalyticsPage from "./AnalyticsPage";
 import FeedbackPage from "./Feedbackpage";
+import SignupPage from "./SignupPage";
+import ConfirmPage from "./ConfirmPage";
+import UnsubscribePage from "./UnsubscribePage";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
@@ -251,6 +254,25 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
         Feedback
       </NavLink>
 
+      <NavLink
+        to='/signup'
+        style={({ isActive }) => ({
+          padding: "16px clamp(8px, 2.5vw, 20px)",
+          fontSize: "clamp(13px, 3vw, 16px)",
+          fontFamily: "sans-serif",
+          fontWeight: 600,
+          color: isActive ? "#3D1580" : "#7A5FAA",
+          textDecoration: "none",
+          borderBottom: isActive
+            ? "3px solid #3D1580"
+            : "3px solid transparent",
+          transition: "color 0.15s, border-color 0.15s",
+          whiteSpace: "nowrap",
+        })}
+      >
+        Email Sign-Up
+      </NavLink>
+
       {/* Audio controls — 🔊 button reads/stops, ▾ opens auto-read dropdown */}
       <div
         style={{
@@ -431,6 +453,18 @@ export default function App() {
         <Route
           path='/feedback'
           element={<FeedbackPage readScriptRef={readScriptRef} />}
+        />
+        <Route
+          path='/signup'
+          element={<SignupPage readScriptRef={readScriptRef} />}
+        />
+        <Route
+          path='/confirm'
+          element={<ConfirmPage readScriptRef={readScriptRef} />}
+        />
+        <Route
+          path='/unsubscribe'
+          element={<UnsubscribePage readScriptRef={readScriptRef} />}
         />
       </Routes>
     </BrowserRouter>
