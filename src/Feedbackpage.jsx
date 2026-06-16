@@ -43,6 +43,18 @@ export default function FeedbackPage({ readScriptRef }) {
     try {
       await submitFeedback(message.trim());
       setStatus("success");
+      // Fire and forget — don't block success screen if email fails
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-feedback-alert`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ message: message.trim() }),
+        },
+      ).catch((err) => console.warn("Alert email failed:", err));
       setMessage("");
     } catch {
       setStatus("error");
