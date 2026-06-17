@@ -1,0 +1,2 @@
+[functions.send-feedback-alert]
+verify_jwt = false
