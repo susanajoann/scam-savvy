@@ -105,7 +105,7 @@ export default function SignupPage({ readScriptRef }) {
     if (!readScriptRef) return;
     if (status === "success") {
       readScriptRef.current = () =>
-        "You are signed up! Your email has been recorded. You will start receiving simulated scam emails within the next few weeks — 2 to 4 per month. Each one is a safe test designed to help you practise spotting real scams. You can unsubscribe at any time using the link at the bottom of any email you receive.";
+        "You are signed up! Your email has been recorded. You will start receiving simulated scam emails within the next few weeks — up to 4 per month. Each one is a safe test designed to help you practise spotting real scams. You can unsubscribe at any time using the link at the bottom of any email you receive.";
     } else if (status === "duplicate") {
       readScriptRef.current = () =>
         "This email is already signed up. Check your inbox for our emails, or contact us if you have any issues.";
@@ -226,7 +226,7 @@ export default function SignupPage({ readScriptRef }) {
         <div style={styles.noticeBox}>
           <p style={styles.noticeTitle}>Before you sign up</p>
           <p style={styles.noticeBody}>
-            By signing up you agree to receive 2–4 simulated phishing test
+            By signing up you agree to receive up to 4 simulated phishing test
             emails per month from ScamSavvy. These emails are safe — they
             contain no real malicious links or attachments. Your email address
             will be stored securely and used only for this program. It will
