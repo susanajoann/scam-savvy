@@ -13,6 +13,7 @@ import FeedbackPage from "./Feedbackpage";
 import SignupPage from "./SignupPage";
 import ConfirmPage from "./ConfirmPage";
 import UnsubscribePage from "./UnsubscribePage";
+import PhishingFeedbackPage from "./PhishingFeedbackPage";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
@@ -465,6 +466,10 @@ export default function App() {
         <Route
           path='/unsubscribe'
           element={<UnsubscribePage readScriptRef={readScriptRef} />}
+        />
+        <Route
+          path='/phishing-feedback'
+          element={<PhishingFeedbackPage readScriptRef={readScriptRef} />}
         />
       </Routes>
     </BrowserRouter>
