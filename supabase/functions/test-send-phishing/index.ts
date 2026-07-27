@@ -5,6 +5,7 @@ const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY   = Deno.env.get("RESEND_API_KEY")!;
 const CRON_SECRET      = Deno.env.get("CRON_SECRET")!;
+const SITE_URL         = "https://scam-savvy.org";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
@@ -61,7 +62,8 @@ serve(async (req) => {
       }),
     });
 
-    const trackedLink = `${SUPABASE_URL}/functions/v1/log-phishing-click?token=${token}`;
+    // Tracked link now points to the Vercel API route, not a Supabase Edge Function.
+    const trackedLink = `${SITE_URL}/api/log-click?token=${token}`;
     const bodyHtml = template.bodyHtml.replace("{{LINK}}", trackedLink);
 
     const html = `
