@@ -1,0 +1,16 @@
+name: Send phishing test emails
+
+on:
+  schedule:
+    - cron: "0 14 * * *" # daily at 2pm UTC — pick any time
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger send-phishing-test-batch
+        run: |
+          curl -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/send-phishing-test-batch" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
