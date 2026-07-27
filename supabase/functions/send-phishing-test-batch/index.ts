@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SITE_URL         = "https://scam-savvy.org";
+import { PHISHING_TEMPLATES } from "./templates.ts";
 
 serve(async (req) => {
   const url = new URL(req.url);
