@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const ADMIN_EMAIL    = "admin@scam-savvy.org";
-const FROM_EMAIL     = "ScamSavvy <noreply@scam-savvy.org>";
+const FROM_EMAIL      = "ScamSavvy <noreply@scam-savvy.org>";
+const SITE_URL        = "https://scam-savvy.org";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
@@ -20,20 +20,17 @@ serve(async (req) => {
   }
 
   try {
-    const { message } = await req.json();
+    const { email, subscriber_id } = await req.json();
 
-    if (!message) {
+    if (!email || !subscriber_id) {
       return new Response(
-        JSON.stringify({ error: "Missing message" }),
+        JSON.stringify({ error: "Missing email or subscriber_id" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const submittedAt = new Date().toLocaleString("en-US", {
-      timeZone:    "America/New_York",
-      dateStyle:   "medium",
-      timeStyle:   "short",
-    });
+    const confirmUrl     = `${SITE_URL}/confirm?id=${subscriber_id}`;
+    const unsubscribeUrl = `${SITE_URL}/unsubscribe?id=${subscriber_id}`;
 
     const html = `
       <!DOCTYPE html>
@@ -45,30 +42,35 @@ serve(async (req) => {
             <!-- Header -->
             <div style="padding:24px 28px 18px;border-bottom:2px solid #E8E0F5;">
               <span style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#3D1580;">Scam</span><span style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#C8952A;">Savvy</span>
-              <p style="font-size:11px;color:#7A5FAA;letter-spacing:1.5px;margin:4px 0 0;text-transform:uppercase;">Admin Notification</p>
+              <p style="font-size:11px;color:#7A5FAA;letter-spacing:1.5px;margin:4px 0 0;text-transform:uppercase;">Confirm your subscription</p>
             </div>
 
             <!-- Body -->
             <div style="padding:24px 28px;">
-              <h1 style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:#3D1580;margin:0 0 6px;">
-                New feedback submitted
+              <h1 style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:#3D1580;margin:0 0 12px;">
+                One step left — confirm your email
               </h1>
-              <p style="font-size:13px;color:#999;margin:0 0 20px;">${submittedAt} EST</p>
+              <p style="font-size:15px;color:#1A0A3C;line-height:1.8;margin:0 0 20px;">
+                Thanks for signing up for ScamSavvy phishing simulations! Click the button below to confirm
+                <strong>${email}</strong> and start receiving simulated scam emails — 2 to 4 per month.
+                Each one is a safe test designed to help you practise spotting real scams.
+              </p>
 
-              <div style="background:#FAF7FF;border-left:4px solid #C8952A;border-radius:4px;padding:14px 18px;margin-bottom:20px;">
-                <p style="font-size:15px;color:#1A0A3C;line-height:1.8;margin:0;">${message.replace(/\n/g, "<br/>")}</p>
-              </div>
-
-              <a href="https://hmkzttbkxafznlgkkyhh.supabase.co" 
-                style="display:inline-block;background:#3D1580;color:#fff;font-size:14px;font-weight:600;font-family:sans-serif;padding:12px 24px;border-radius:8px;text-decoration:none;">
-                View in Supabase →
+              <a href="${confirmUrl}"
+                style="display:inline-block;background:#3D1580;color:#fff;font-size:15px;font-weight:600;font-family:sans-serif;padding:14px 28px;border-radius:10px;text-decoration:none;margin-bottom:20px;">
+                Confirm my subscription →
               </a>
+
+              <p style="font-size:13px;color:#999;line-height:1.6;margin:20px 0 0;">
+                If you didn't sign up for ScamSavvy, you can ignore this email, or
+                <a href="${unsubscribeUrl}" style="color:#7A5FAA;">unsubscribe here</a>.
+              </p>
             </div>
 
             <!-- Footer -->
             <div style="padding:14px 28px;border-top:1.5px solid #E8E0F5;background:#FAF7FF;">
               <p style="font-size:12px;color:#999;margin:0;">
-                This is an automated alert from ScamSavvy. All feedback is stored anonymously in Supabase.
+                This email was sent because ${email} signed up at scam-savvy.org. All quiz data is anonymous.
               </p>
             </div>
 
@@ -85,8 +87,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from:    FROM_EMAIL,
-        to:      [ADMIN_EMAIL],
-        subject: "📬 New feedback on ScamSavvy",
+        to:      [email],
+        subject: "Confirm your ScamSavvy subscription",
         html,
       }),
     });
