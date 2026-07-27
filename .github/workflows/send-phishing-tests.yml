@@ -1,16 +1,36 @@
-name: Send phishing test emails
+name: Test phishing email send
 
 on:
-  schedule:
-    - cron: "0 14 * * *" # daily at 2pm UTC — pick any time
   workflow_dispatch:
+    inputs:
+      email:
+        description: "Email address to send the test to"
+        required: true
+        type: string
+      template_id:
+        description: "Template id (leave blank for random)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - usps-package
+          - bank-alert
+          - amazon-order
 
 jobs:
-  trigger:
+  send-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger send-phishing-test-batch
+      - name: Trigger test-send-phishing
         run: |
+          if [ -n "${{ inputs.template_id }}" ]; then
+            BODY="{\"email\":\"${{ inputs.email }}\",\"template_id\":\"${{ inputs.template_id }}\"}"
+          else
+            BODY="{\"email\":\"${{ inputs.email }}\"}"
+          fi
+
           curl -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/send-phishing-test-batch" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
+            "${{ secrets.SUPABASE_URL }}/functions/v1/test-send-phishing" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d "$BODY"
