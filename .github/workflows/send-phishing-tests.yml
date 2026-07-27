@@ -1,0 +1,36 @@
+name: Test phishing email send
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email address to send the test to"
+        required: true
+        type: string
+      template_id:
+        description: "Template id (leave blank for random)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - usps-package
+          - bank-alert
+          - amazon-order
+
+jobs:
+  send-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger test-send-phishing
+        run: |
+          if [ -n "${{ inputs.template_id }}" ]; then
+            BODY="{\"email\":\"${{ inputs.email }}\",\"template_id\":\"${{ inputs.template_id }}\"}"
+          else
+            BODY="{\"email\":\"${{ inputs.email }}\"}"
+          fi
+
+          curl -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/test-send-phishing" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d "$BODY"
