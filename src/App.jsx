@@ -265,7 +265,7 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
           color: isActive ? "#3D1580" : "#7A5FAA",
           textDecoration: "none",
           borderBottom: isActive
-            ? "3px solid #3D1580"
+            ? "3px solid #C8952A"
             : "3px solid transparent",
           transition: "color 0.15s, border-color 0.15s",
           whiteSpace: "nowrap",
