@@ -14,6 +14,7 @@ import SignupPage from "./SignupPage";
 import ConfirmPage from "./ConfirmPage";
 import UnsubscribePage from "./UnsubscribePage";
 import PhishingFeedbackPage from "./PhishingFeedbackPage";
+import AboutPage from "./AboutPage";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
@@ -273,6 +274,24 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
       >
         Email Sign-Up
       </NavLink>
+      <NavLink
+        to='/about'
+        style={({ isActive }) => ({
+          padding: "16px clamp(8px, 2.5vw, 20px)",
+          fontSize: "clamp(13px, 3vw, 16px)",
+          fontFamily: "sans-serif",
+          fontWeight: 600,
+          color: isActive ? "#3D1580" : "#7A5FAA",
+          textDecoration: "none",
+          borderBottom: isActive
+            ? "3px solid #3D1580"
+            : "3px solid transparent",
+          transition: "color 0.15s, border-color 0.15s",
+          whiteSpace: "nowrap",
+        })}
+      >
+        About
+      </NavLink>
 
       {/* Audio controls — 🔊 button reads/stops, ▾ opens auto-read dropdown */}
       <div
@@ -470,6 +489,10 @@ export default function App() {
         <Route
           path='/phishing-feedback'
           element={<PhishingFeedbackPage readScriptRef={readScriptRef} />}
+        />
+        <Route
+          path='/about'
+          element={<AboutPage readScriptRef={readScriptRef} />}
         />
       </Routes>
     </BrowserRouter>
