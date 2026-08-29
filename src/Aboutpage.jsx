@@ -12,8 +12,7 @@
 // skipped (decorative arrows, redundant numbering).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useReadPage } from "./Usereadpage.js";
-
+import { useState, useEffect } from "react";
 const PURPLE = "#3D1580";
 const GOLD = "#C8952A";
 const MUTED = "#7A5FAA";
