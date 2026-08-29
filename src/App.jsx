@@ -14,7 +14,7 @@ import SignupPage from "./SignupPage";
 import ConfirmPage from "./ConfirmPage";
 import UnsubscribePage from "./UnsubscribePage";
 import PhishingFeedbackPage from "./PhishingFeedbackPage";
-import AboutPage from "./AboutPage";
+import AboutPage from "./Aboutpage";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
