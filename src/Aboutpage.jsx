@@ -19,8 +19,6 @@ const MUTED = "#7A5FAA";
 const GREEN = "#2D6A4F";
 
 export default function AboutPage({ readScriptRef }) {
-  const containerRef = useReadPage(readScriptRef);
-
   return (
     <PageOuter containerRef={containerRef}>
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
