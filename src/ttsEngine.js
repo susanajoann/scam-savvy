@@ -1,58 +1,22 @@
 // src/ttsEngine.js
 //
 // Drop-in replacement for window.speechSynthesis, used by navSpeak() in
-// App.jsx. Generates natural speech locally via Kokoro instead of the
-// browser's built-in robotic voice. External shape stays the same:
-// speak(text, { rate, onDone }) and stop().
-
-let worker = null;
-let modelReady = false;
-let modelLoading = null;
+// App.jsx. Generates natural speech via OpenAI's TTS API (through the
+// /api/tts serverless function, which holds the API key server-side)
+// instead of the browser's built-in robotic voice.
+//
+// Previously this ran Kokoro entirely client-side. That kept things free
+// and key-free, but generation speed varied wildly by device/browser and
+// wasn't reliable enough for production use. This version trades "free"
+// for "fast and consistent" — OpenAI's TTS costs roughly $0.015/minute
+// of generated audio, kept in check by the server-side rate limit in
+// api/tts.js.
 
 let currentAudio = null;
-let queue = [];
-let pollTimer = null;
+let activeRequest = null; // tracks the in-flight speak() call so stop()/new calls can invalidate it
 
-function getWorker() {
-  if (!worker) {
-    worker = new Worker(new URL("./workers/ttsWorker.js", import.meta.url), {
-      type: "module",
-    });
-    worker.onmessage = (event) => {
-      const { type, blob, error } = event.data;
-      if (type === "ready") modelReady = true;
-      if (type === "chunk") queue.push(blob);
-      if (type === "error") console.error("TTS engine error:", error);
-    };
-  }
-  return worker;
-}
-
-function ensureModelLoaded() {
-  if (modelReady) return Promise.resolve();
-  if (!modelLoading) {
-    modelLoading = new Promise((resolve) => {
-      const w = getWorker();
-      const onReady = (event) => {
-        if (event.data.type === "ready") {
-          w.removeEventListener("message", onReady);
-          resolve();
-        }
-      };
-      w.addEventListener("message", onReady);
-      w.postMessage({ type: "load" });
-    });
-  }
-  return modelLoading;
-}
-
-// Call on hover of the 🔊 button (or on app mount) to hide the ~150MB
-// first-time model download behind normal browsing time.
-export function preloadTTS() {
-  ensureModelLoaded();
-}
-
-function splitIntoChunks(text, maxLen = 300) {
+function splitIntoChunks(text, maxLen = 700) {
+  // Stays comfortably under api/tts.js's MAX_CHARS_PER_REQUEST (800).
   const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
   const chunks = [];
   let current = "";
@@ -68,49 +32,101 @@ function splitIntoChunks(text, maxLen = 300) {
   return chunks;
 }
 
-function playNext(rate, onDone) {
-  const blob = queue.shift();
-  if (!blob) {
-    currentAudio = null;
-    onDone?.();
-    return;
+async function requestChunk(text, voice) {
+  const res = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `TTS request failed (${res.status})`);
   }
-  const url = URL.createObjectURL(blob);
-  const audio = new Audio(url);
-  audio.playbackRate = rate; // reuses your existing Slow/Normal/Fast rates directly
-  currentAudio = audio;
-  audio.onended = () => {
-    URL.revokeObjectURL(url);
-    playNext(rate, onDone);
-  };
-  audio.play();
+  return res.blob();
 }
+
+// No client-side model to warm up anymore — kept as a no-op so App.jsx's
+// onMouseEnter={preloadTTS} on the 🔊 button doesn't need to change.
+export function preloadTTS() {}
 
 // Fire-and-forget, mirrors speechSynthesis.speak()'s "started" semantics:
 // the caller marks itself as speaking immediately, onDone fires later.
-export function speak(text, { rate = 1, onDone } = {}) {
-  const w = getWorker();
+//
+// Chunks are fetched with a little lookahead (stays ~2 requests ahead of
+// playback) rather than all at once, so a long page doesn't fire dozens
+// of simultaneous requests at the rate-limited endpoint. Playback is
+// strictly ordered and "done" only fires once every chunk has actually
+// played — same correctness fix as the Kokoro version, still needed here
+// since network requests can also complete out of order.
+export function speak(text, { rate = 1, voice = "alloy", onDone } = {}) {
+  const request = { stopped: false };
+  activeRequest = request;
 
-  ensureModelLoaded().then(() => {
-    const chunks = splitIntoChunks(text);
-    queue = [];
-    chunks.forEach((chunk, i) =>
-      w.postMessage({ type: "generate", id: i, text: chunk }),
-    );
+  const chunks = splitIntoChunks(text);
+  const total = chunks.length;
+  const results = new Array(total);
+  let nextToPlay = 0;
+  let requestedUpTo = -1;
 
-    clearInterval(pollTimer);
-    pollTimer = setInterval(() => {
-      if (queue.length > 0) {
-        clearInterval(pollTimer);
-        playNext(rate, onDone);
-      }
-    }, 100);
-  });
+  function finish() {
+    if (activeRequest === request) {
+      currentAudio = null;
+      activeRequest = null;
+    }
+    onDone?.();
+  }
+
+  function tryPlayNext() {
+    if (request.stopped) return;
+    if (currentAudio) return; // something's already playing; its onended calls this again
+    if (nextToPlay >= total) {
+      finish();
+      return;
+    }
+    const blob = results[nextToPlay];
+    if (blob === undefined) return; // still waiting on this chunk from the server
+
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.playbackRate = rate;
+    currentAudio = audio;
+    nextToPlay++;
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      currentAudio = null;
+      tryPlayNext();
+    };
+    audio.play();
+  }
+
+  function requestMore() {
+    if (request.stopped) return;
+    while (requestedUpTo < total - 1 && requestedUpTo < nextToPlay + 1) {
+      requestedUpTo++;
+      const index = requestedUpTo;
+      requestChunk(chunks[index], voice)
+        .then((blob) => {
+          if (request.stopped) return;
+          results[index] = blob;
+          tryPlayNext();
+          requestMore();
+        })
+        .catch((err) => {
+          console.error(`[tts] chunk ${index} failed:`, err);
+          if (request.stopped) return;
+          results[index] = new Blob(); // skip it rather than stall forever
+          tryPlayNext();
+          requestMore();
+        });
+    }
+  }
+
+  requestMore();
 }
 
 export function stop() {
-  clearInterval(pollTimer);
-  queue = [];
+  if (activeRequest) activeRequest.stopped = true;
+  activeRequest = null;
   currentAudio?.pause();
   currentAudio = null;
 }
