@@ -17,7 +17,7 @@ import {
   Scatter,
   ZAxis,
 } from "recharts";
-import PanZoomChart from "./PanZoomChart.jsx";
+import PanZoomChart from "./Panzoomchart.jsx";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
