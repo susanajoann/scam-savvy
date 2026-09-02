@@ -96,7 +96,21 @@ export function speak(text, { rate = 1, voice = "alloy", onDone } = {}) {
       currentAudio = null;
       tryPlayNext();
     };
-    audio.play();
+    audio.play().catch((err) => {
+      // Browsers can block programmatic audio.play() if it happens too far
+      // from a direct user gesture — e.g. after an awaited network request,
+      // like the Supabase call HomeScreen makes before transitioning into
+      // the quiz. This previously failed completely silently (an unhandled
+      // promise rejection), making it look like Auto-read just "didn't
+      // work" with no clue why. Now at least it's visible in the console.
+      console.warn(
+        "[tts] audio.play() was blocked (likely an autoplay/gesture restriction):",
+        err,
+      );
+      URL.revokeObjectURL(url);
+      currentAudio = null;
+      tryPlayNext();
+    });
   }
 
   function requestMore() {

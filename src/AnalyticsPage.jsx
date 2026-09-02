@@ -254,11 +254,11 @@ export default function AnalyticsPage({ readScriptRef }) {
   useEffect(() => {
     if (!readScriptRef) return;
     if (loading) {
-      readScriptRef.current = () => "Loading research data. Please wait.";
+      readScriptRef.announce(() => "Loading research data. Please wait.");
       return;
     }
     if (!answers.length) {
-      readScriptRef.current = () => "No answer data yet.";
+      readScriptRef.announce(() => "No answer data yet.");
       return;
     }
     const totalAnswers = answers.length;
@@ -267,8 +267,10 @@ export default function AnalyticsPage({ readScriptRef }) {
     const overallAccuracy = Math.round(
       (answers.filter((a) => a.correct).length / answers.length) * 100,
     );
-    readScriptRef.current = () =>
-      `Research Dashboard. ${totalAnswers} answers. ${totalSessions} sessions. ${completedSess} completed. ${overallAccuracy} percent accuracy.`;
+    readScriptRef.announce(
+      () =>
+        `Research Dashboard. ${totalAnswers} answers. ${totalSessions} sessions. ${completedSess} completed. ${overallAccuracy} percent accuracy.`,
+    );
   }, [loading, answers.length, sessions.length]);
 
   if (loading)

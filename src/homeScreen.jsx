@@ -138,7 +138,8 @@ export default function HomeScreen({ onStart, readScriptRef }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [starting, setStarting] = useState(false);
 
-  // Register current page script with NavBar so the 🔊 button knows what to read
+  // Keep the manual 🔊 button's script always up to date with the latest
+  // selections, whenever anything on this screen changes.
   useEffect(() => {
     if (!readScriptRef) return;
     if (screen === "landing") {
@@ -148,6 +149,23 @@ export default function HomeScreen({ onStart, readScriptRef }) {
         buildHomeScript(ageRange, selectedDifficulty);
     }
   }, [screen, ageRange, consentGiven, selectedDifficulty]);
+
+  // Only announce (trigger Auto-read) when the whole screen changes — e.g.
+  // landing → home — not for minor selections within the same screen like
+  // picking an age range or a difficulty. Those still update the manual
+  // button's script above; they just shouldn't interrupt Auto-read
+  // narration that's already in progress.
+  useEffect(() => {
+    if (!readScriptRef?.announce) return;
+    if (screen === "landing") {
+      readScriptRef.announce(() => buildLandingScript(ageRange, consentGiven));
+    } else if (screen === "home") {
+      readScriptRef.announce(() =>
+        buildHomeScript(ageRange, selectedDifficulty),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   // ── Screen: Landing ─────────────────────────────────────────────────────────
   if (screen === "landing") {

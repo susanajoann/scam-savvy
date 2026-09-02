@@ -117,11 +117,11 @@ function NavBar({
     setIsSpeaking(nowSpeaking);
   };
 
-  // Auto-read: fires whenever any page registers a new script (scriptVersion
-  // bumps on every readScriptRef.current = fn assignment, from any page —
-  // see createReadScriptRef below) while the toggle is on. This is what
-  // makes Auto-read actually work, rather than just existing as a toggle
-  // with no wired behavior.
+  // Auto-read: fires whenever any page calls readScriptRef.announce() (see
+  // createReadScriptRef below) while the toggle is on. Only genuine
+  // content changes call .announce() — minor in-screen selections use the
+  // silent .current = instead, so they don't interrupt narration that's
+  // already in progress.
   useEffect(() => {
     if (!autoRead) {
       if (isSpeaking) {
@@ -445,21 +445,32 @@ function QuizFlow({ resetRef, readScriptRef }) {
 
 // ─── Root app ─────────────────────────────────────────────────────────────────
 
-// A drop-in replacement for useRef() that looks and behaves identically to
-// every existing page (readScriptRef.current = fn to register, .current()
-// to read) but calls onChange whenever anything assigns to .current. This
-// is what lets Auto-read react to a script changing on ANY page — quiz
-// question transitions, status changes, route changes — without needing
-// to touch a single page file.
-function createReadScriptRef(onChange) {
+// A drop-in replacement for useRef() with one addition: alongside the usual
+// .current getter/setter (silent — used for the manual 🔊 button, which
+// should always read whatever's most current when clicked), it exposes
+// .announce(fn), which pages call explicitly when the visible content has
+// genuinely changed in a way worth Auto-read re-triggering for — a new
+// screen, a new quiz question, a submitted form swapping to a result card.
+//
+// The split matters: earlier, ANY assignment to .current triggered
+// Auto-read, including minor in-screen updates (e.g. clicking a difficulty
+// button just highlights a selection — it doesn't change what screen
+// you're on) — which caused Auto-read to interrupt itself constantly.
+// Pages still keep .current always fresh for on-demand reads; they just
+// call .announce() only at the moments that should actually restart
+// narration.
+function createReadScriptRef(onAnnounce) {
   let fn = () => "";
   return {
     get current() {
       return fn;
     },
     set current(value) {
+      fn = value; // silent — doesn't trigger Auto-read
+    },
+    announce(value) {
       fn = value;
-      onChange?.();
+      onAnnounce?.();
     },
   };
 }

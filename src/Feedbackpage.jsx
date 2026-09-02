@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
-import { registerDomReadScript } from "./readPageContent.js";
+import { announceDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -31,13 +31,13 @@ export default function FeedbackPage({ readScriptRef }) {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("idle"); // idle | submitting | success | error
 
-  // Register read script with NavBar 🔊 button. Reads whatever's actually
-  // on screen (idle form / success message / error) instead of a separate
-  // hand-written copy — the old version here never reflected the success
-  // state at all, since it was set once and never updated.
+  // Reads whatever's actually on screen and re-announces whenever status
+  // changes to something that swaps the visible content (idle form vs.
+  // success/error card) — fixing the old version, which set this once on
+  // mount and never updated after a successful submission.
   useEffect(() => {
-    registerDomReadScript(readScriptRef, "feedback-page-content");
-  }, []);
+    announceDomReadScript(readScriptRef, "feedback-page-content");
+  }, [status]);
 
   const handleSubmit = async () => {
     if (!message.trim()) return;

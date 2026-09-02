@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
-import { registerDomReadScript } from "./readPageContent.js";
+import { announceDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -64,11 +64,11 @@ export default function UnsubscribePage({ readScriptRef }) {
       });
   }, []);
 
-  // Reads whatever's actually rendered below instead of a separate
-  // hand-maintained copy of each status message.
+  // Reads whatever's actually rendered below and re-announces whenever
+  // status changes to a new card.
   useEffect(() => {
-    registerDomReadScript(readScriptRef, "unsubscribe-page-content");
-  }, []);
+    announceDomReadScript(readScriptRef, "unsubscribe-page-content");
+  }, [status]);
 
   return (
     <PageOuter>

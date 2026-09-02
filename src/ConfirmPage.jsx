@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
-import { registerDomReadScript } from "./readPageContent.js";
+import { announceDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -64,10 +64,10 @@ export default function ConfirmPage({ readScriptRef }) {
   }, []);
 
   // Reads whatever's actually rendered below (loading/success/missing/error
-  // card) instead of maintaining a separate copy of each status message.
+  // card) and re-announces whenever status changes to a new card.
   useEffect(() => {
-    registerDomReadScript(readScriptRef, "confirm-page-content");
-  }, []);
+    announceDomReadScript(readScriptRef, "confirm-page-content");
+  }, [status]);
 
   return (
     <PageOuter>

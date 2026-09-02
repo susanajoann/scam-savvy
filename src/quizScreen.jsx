@@ -257,14 +257,18 @@ export default function QuizScreen({
     questionStartTime.current = Date.now();
   }, [scamIndex, questionIndex]);
 
-  // Register current screen script with NavBar so the 🔊 button knows what to read.
-  // Updates whenever the screen, question, or feedback state changes.
+  // Register current screen script with NavBar so the 🔊 button knows what
+  // to read, AND announce it for Auto-read — every dependency below is a
+  // genuine content change (new question, feedback reveal, results), not a
+  // minor in-screen selection, so it's correct for these to always
+  // re-trigger Auto-read.
   useEffect(() => {
     if (!readScriptRef) return;
     if (screen === "intro" && currentScam) {
       const isFirst = scamIndex === 0;
-      readScriptRef.current = () =>
-        buildIntroScript(currentScam, isFirst, isHardMode);
+      readScriptRef.announce(() =>
+        buildIntroScript(currentScam, isFirst, isHardMode),
+      );
     } else if (
       screen === "question" &&
       !isHardMode &&
@@ -273,29 +277,33 @@ export default function QuizScreen({
     ) {
       if (showFeedback) {
         const correctOption = shuffledOptions.find((o) => o.correct);
-        readScriptRef.current = () =>
+        readScriptRef.announce(() =>
           buildFeedbackScript(
             selectedOption?.correct,
             currentQuestion.explanation,
             correctOption?.text ?? "",
-          );
+          ),
+        );
       } else {
-        readScriptRef.current = () =>
-          buildQuestionScript(currentQuestion, shuffledOptions);
+        readScriptRef.announce(() =>
+          buildQuestionScript(currentQuestion, shuffledOptions),
+        );
       }
     } else if (screen === "question" && isHardMode && currentScam) {
       const hardContent = currentScam.hard;
       const bodyText = hardContent.body.map((s) => s.text).join(" ");
-      readScriptRef.current = () =>
-        `${hardContent.instruction} The message reads: ${bodyText}`;
+      readScriptRef.announce(
+        () => `${hardContent.instruction} The message reads: ${bodyText}`,
+      );
     } else if (screen === "results") {
       const totalCorrect = scamScores.reduce((sum, s) => sum + s.correct, 0);
       const totalQuestions = scamScores.reduce((sum, s) => sum + s.total, 0);
       const pct = totalQuestions
         ? Math.round((totalCorrect / totalQuestions) * 100)
         : 0;
-      readScriptRef.current = () =>
-        buildResultsScript(pct, totalCorrect, totalQuestions, scamScores);
+      readScriptRef.announce(() =>
+        buildResultsScript(pct, totalCorrect, totalQuestions, scamScores),
+      );
     }
   }, [
     screen,

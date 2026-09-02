@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { PHISHING_TEMPLATES } from "./phishingTemplates.js";
-import { registerDomReadScript } from "./readPageContent.js";
+import { announceDomReadScript } from "./readPageContent.js";
 
 export default function PhishingFeedbackPage({ readScriptRef }) {
   const [template, setTemplate] = useState(null);
@@ -18,11 +18,11 @@ export default function PhishingFeedbackPage({ readScriptRef }) {
     setTemplate(PHISHING_TEMPLATES.find((t) => t.id === id) ?? null);
   }, []);
 
-  // Reads whatever's actually rendered below instead of a separate
-  // hand-written copy of the explanation text.
+  // Reads whatever's actually rendered below and announces once the
+  // template resolves from the URL param.
   useEffect(() => {
-    registerDomReadScript(readScriptRef, "phishing-feedback-content");
-  }, []);
+    announceDomReadScript(readScriptRef, "phishing-feedback-content");
+  }, [template]);
 
   return (
     <PageOuter>

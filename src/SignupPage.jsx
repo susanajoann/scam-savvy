@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
-import { registerDomReadScript } from "./readPageContent.js";
+import { announceDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -103,10 +103,11 @@ export default function SignupPage({ readScriptRef }) {
   const [errorMsg, setErrorMsg] = useState("");
 
   // Reads whatever's actually rendered below (form / success / error state)
-  // instead of a separate hand-maintained copy of each status message.
+  // and re-announces whenever status changes to a new card — not on every
+  // keystroke in the email field or checkbox toggle.
   useEffect(() => {
-    registerDomReadScript(readScriptRef, "signup-page-content");
-  }, []);
+    announceDomReadScript(readScriptRef, "signup-page-content");
+  }, [status]);
 
   const handleSubmit = async () => {
     if (!email.trim() || !consent || status === "submitting") return;
@@ -153,7 +154,7 @@ export default function SignupPage({ readScriptRef }) {
           <p style={styles.successTitle}>✓ You're signed up!</p>
           <p style={styles.successBody}>
             Your email has been recorded. You will start receiving simulated
-            scam emails within the next few weeks — up to 4 per month. Each one
+            scam emails within the next few weeks — 2 to 4 per month. Each one
             is a safe test designed to help you practise spotting real scams.
           </p>
           <p style={styles.successNote}>

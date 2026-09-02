@@ -19,8 +19,6 @@ const SKIP_SELECTORS = [
   "nav",
   "header",
   "footer",
-  "button",
-  "[role='button']",
   "script",
   "style",
   "noscript",
@@ -40,12 +38,23 @@ export function extractReadableText(container) {
   return (clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
-// Convenience wrapper for the common case: register a live-DOM-read
-// function against readScriptRef, keyed by a container element's id.
-// Call once on mount — no dependency array needed, since the returned
-// function re-reads the DOM fresh every time it's actually invoked.
+// Silent registration — keeps the manual 🔊 button's script fresh without
+// triggering Auto-read. Use for content that doesn't represent a genuine
+// screen/state change.
 export function registerDomReadScript(readScriptRef, containerId) {
   if (!readScriptRef) return;
   readScriptRef.current = () =>
     extractReadableText(document.getElementById(containerId));
+}
+
+// Announcing registration — same DOM read, but also triggers Auto-read.
+// Use when the visible content has genuinely changed in a way worth
+// re-announcing (e.g. a form swapping to a success/error card) — call
+// this from an effect keyed to the state that actually changes the
+// rendered content (e.g. [status]), not on every render.
+export function announceDomReadScript(readScriptRef, containerId) {
+  if (!readScriptRef?.announce) return;
+  readScriptRef.announce(() =>
+    extractReadableText(document.getElementById(containerId)),
+  );
 }
