@@ -15,7 +15,7 @@
 // along with everything else, since it's part of the same transformed
 // layer — kept in mind by capping max zoom at a modest level.
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
@@ -56,6 +56,22 @@ export default function PanZoomChart({ children, height = 380 }) {
     const factor = e.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR;
     zoomAt(e.clientX, e.clientY, factor);
   }
+
+  // Attaching wheel handling here (native addEventListener with
+  // passive: false) instead of React's onWheel prop is deliberate: React's
+  // synthetic event system doesn't reliably let preventDefault() stop the
+  // browser's own zoom/scroll — most noticeably for trackpad pinch
+  // gestures, which fire as wheel events with ctrlKey set and which
+  // browsers otherwise treat as "zoom the whole page." A native, non-
+  // passive listener is what actually gives us the ability to override
+  // that and keep the gesture scoped to just this chart.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleMouseDown(e) {
     dragRef.current = {
@@ -157,7 +173,6 @@ export default function PanZoomChart({ children, height = 380 }) {
     <div style={{ position: "relative" }}>
       <div
         ref={containerRef}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={endDrag}
@@ -168,6 +183,7 @@ export default function PanZoomChart({ children, height = 380 }) {
         style={{
           height,
           overflow: "hidden",
+          overscrollBehavior: "contain",
           border: "1.5px solid #E8E0F5",
           borderRadius: 12,
           background: "#fff",

@@ -17,7 +17,7 @@ import {
   Scatter,
   ZAxis,
 } from "recharts";
-import PanZoomChart from "./Panzoomchart.jsx";
+import PanZoomChart from "./PanZoomChart.jsx";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -239,6 +239,17 @@ export default function AnalyticsPage({ readScriptRef }) {
   const [selDifficulty, setSelDifficulty] = useState("all");
   const [selAge, setSelAge] = useState("all");
 
+  // Scatter-chart-only legend isolation — clicking a legend entry shows
+  // only matching points on that chart, independent of the page-wide
+  // difficulty/age dropdown filters above.
+  const [isolatedDifficulty, setIsolatedDifficulty] = useState(null);
+  const [isolatedAge, setIsolatedAge] = useState(null);
+
+  useEffect(() => {
+    setIsolatedDifficulty(null);
+    setIsolatedAge(null);
+  }, [selDifficulty, selAge]);
+
   useEffect(() => {
     Promise.all([fetchTable("answers"), fetchTable("sessions")])
       .then(([ans, sess]) => {
@@ -339,6 +350,19 @@ export default function AnalyticsPage({ readScriptRef }) {
     if (!byAge[d.ageRange]) byAge[d.ageRange] = [];
     byAge[d.ageRange].push(d);
   });
+
+  // A point renders only if it matches the currently isolated legend
+  // entry (if any) for BOTH legend groups — isolating a difficulty and an
+  // age range at the same time narrows to their intersection, which is
+  // the expected behavior when combining two independent filters.
+  const isPointVisible = (d) =>
+    (!isolatedDifficulty || d.difficulty === isolatedDifficulty) &&
+    (!isolatedAge || d.ageRange === isolatedAge);
+
+  const toggleIsolatedDifficulty = (key) =>
+    setIsolatedDifficulty((prev) => (prev === key ? null : key));
+  const toggleIsolatedAge = (age) =>
+    setIsolatedAge((prev) => (prev === age ? null : age));
 
   // ── Leaderboard ──────────────────────────────────────────────────────────────
   const buildLeaderboard = (diff) =>
@@ -617,14 +641,18 @@ export default function AnalyticsPage({ readScriptRef }) {
                       );
                     }}
                   />
-                  {Object.entries(byAge).map(([age, data]) => (
-                    <Scatter
-                      key={age}
-                      data={data}
-                      shape={<CustomDot />}
-                      fill={DIFF_COLORS.easy}
-                    />
-                  ))}
+                  {Object.entries(byAge).map(([age, data]) => {
+                    const visible = data.filter(isPointVisible);
+                    if (!visible.length) return null;
+                    return (
+                      <Scatter
+                        key={age}
+                        data={visible}
+                        shape={<CustomDot />}
+                        fill={DIFF_COLORS.easy}
+                      />
+                    );
+                  })}
                 </ScatterChart>
               </ResponsiveContainer>
             </PanZoomChart>
@@ -670,14 +698,38 @@ export default function AnalyticsPage({ readScriptRef }) {
               const count = scatterData.filter(
                 (d) => d.difficulty === key,
               ).length;
+              const isActive = isolatedDifficulty === key;
+              const isDimmed = isolatedDifficulty && !isActive;
               return (
                 <div
                   key={key}
+                  onClick={() => toggleIsolatedDifficulty(key)}
+                  role='button'
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleIsolatedDifficulty(key);
+                    }
+                  }}
+                  title={
+                    isActive
+                      ? `Showing only ${label} — click to show all`
+                      : `Click to show only ${label}`
+                  }
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
                     marginBottom: 5,
+                    padding: "3px 6px",
+                    marginLeft: -6,
+                    marginRight: -6,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    background: isActive ? "#EDE8F8" : "transparent",
+                    opacity: isDimmed ? 0.4 : 1,
+                    transition: "background 0.12s, opacity 0.12s",
                   }}
                 >
                   <div
@@ -689,7 +741,14 @@ export default function AnalyticsPage({ readScriptRef }) {
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ fontSize: 12, color: "#333", flex: 1 }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "#333",
+                      flex: 1,
+                      fontWeight: isActive ? 700 : 400,
+                    }}
+                  >
                     {label}
                   </span>
                   <span style={{ fontSize: 11, color: "#999" }}>{count}</span>
@@ -709,14 +768,38 @@ export default function AnalyticsPage({ readScriptRef }) {
             {Object.entries(byAge).map(([age, data]) => {
               const symbol =
                 AGE_SHAPE_SYMBOLS[AGE_SHAPES[age] ?? "circle"] ?? "○";
+              const isActive = isolatedAge === age;
+              const isDimmed = isolatedAge && !isActive;
               return (
                 <div
                   key={age}
+                  onClick={() => toggleIsolatedAge(age)}
+                  role='button'
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleIsolatedAge(age);
+                    }
+                  }}
+                  title={
+                    isActive
+                      ? `Showing only ${age} — click to show all`
+                      : `Click to show only ${age}`
+                  }
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
                     marginBottom: 5,
+                    padding: "3px 6px",
+                    marginLeft: -6,
+                    marginRight: -6,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    background: isActive ? "#EDE8F8" : "transparent",
+                    opacity: isDimmed ? 0.4 : 1,
+                    transition: "background 0.12s, opacity 0.12s",
                   }}
                 >
                   <span
@@ -730,7 +813,14 @@ export default function AnalyticsPage({ readScriptRef }) {
                   >
                     {symbol}
                   </span>
-                  <span style={{ fontSize: 12, color: "#333", flex: 1 }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "#333",
+                      flex: 1,
+                      fontWeight: isActive ? 700 : 400,
+                    }}
+                  >
                     {age}
                   </span>
                   <span style={{ fontSize: 11, color: "#999" }}>
