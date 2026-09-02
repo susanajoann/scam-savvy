@@ -12,16 +12,32 @@ const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 
 let ttsPromise = null;
 
-function getTTS() {
-  if (!ttsPromise) {
-    ttsPromise = KokoroTTS.from_pretrained(MODEL_ID, {
-      // q8 keeps the download small with minimal quality loss.
-      dtype: "q8",
-      // "wasm" works everywhere. Switch to "webgpu" (with dtype "fp32")
-      // later if you want faster generation on supported browsers.
-      device: "wasm",
-    });
-  }
+async function getTTS() {
+  if (ttsPromise) return ttsPromise;
+
+  ttsPromise = (async () => {
+    // WebGPU is significantly faster than WASM when available. Try it
+    // first; if the browser/GPU doesn't support it, fall back cleanly.
+    try {
+      console.time("[tts] load (webgpu)");
+      const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
+        dtype: "fp32",
+        device: "webgpu",
+      });
+      console.timeEnd("[tts] load (webgpu)");
+      return tts;
+    } catch (err) {
+      console.warn("[tts] WebGPU unavailable, falling back to WASM:", err);
+      console.time("[tts] load (wasm)");
+      const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
+        dtype: "q8",
+        device: "wasm",
+      });
+      console.timeEnd("[tts] load (wasm)");
+      return tts;
+    }
+  })();
+
   return ttsPromise;
 }
 
@@ -41,9 +57,11 @@ self.addEventListener("message", async (event) => {
   if (type === "generate") {
     try {
       const tts = await getTTS();
+      console.time(`[tts] generate chunk ${id}`);
       const audio = await tts.generate(text, {
         voice: voice || "af_heart",
       });
+      console.timeEnd(`[tts] generate chunk ${id}`);
       // RawAudio -> Blob, transferable back to the main thread.
       const blob = audio.toBlob();
       self.postMessage({ type: "chunk", id, blob });
