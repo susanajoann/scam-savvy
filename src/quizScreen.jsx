@@ -68,45 +68,8 @@ const TEXT_PRINT_FOOTER =
 const TEXT_TOPIC_OF = "Topic"; // used as "Topic X of Y"
 
 // Read aloud button label
-// ─── Speech speed ────────────────────────────────────────────────────────────
-// Reads the speed the user selected on the home screen.
-// Defaults to 0.88 if nothing has been saved yet.
-const SPEECH_SPEED_KEY = "scamshield_speech_speed";
-
-function getSpeechRate() {
-  try {
-    const saved = localStorage.getItem(SPEECH_SPEED_KEY);
-    return saved ? parseFloat(saved) : 0.88;
-  } catch {
-    return 0.88;
-  }
-}
-
-// ─── Speech utility ─────────────────────────────────────────────────────────
-
-function speak(text) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-
-  // Split at sentence-ending punctuation to create natural pauses.
-  const chunks = text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-
-  chunks.forEach((chunk, i) => {
-    const utterance = new SpeechSynthesisUtterance(chunk);
-    utterance.rate = getSpeechRate(); // reads speed saved by the home screen
-    utterance.pitch = 1;
-    if (i > 0) {
-      const pause = new SpeechSynthesisUtterance(" ");
-      pause.rate = 0.1;
-      pause.volume = 0;
-      window.speechSynthesis.speak(pause);
-    }
-    window.speechSynthesis.speak(utterance);
-  });
-}
+// Note: actual narration is handled by navSpeak() in App.jsx, powered by
+// src/ttsEngine.js. This screen only needs to register its script below.
 
 // ─── Speech builders ──────────────────────────────────────────────────────────
 // Each builder reads from the TEXT_ constants and the live data — no separate

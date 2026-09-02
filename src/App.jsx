@@ -14,7 +14,7 @@ import SignupPage from "./SignupPage";
 import ConfirmPage from "./ConfirmPage";
 import UnsubscribePage from "./UnsubscribePage";
 import PhishingFeedbackPage from "./PhishingFeedbackPage";
-import AboutPage from "./Aboutpage";
+import { speak as ttsSpeak, stop as ttsStop, preloadTTS } from "./ttsEngine";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
@@ -56,52 +56,30 @@ function saveAutoRead(value) {
 
 // Global speak function used by the NavBar to read the current page.
 // HomeScreen and QuizScreen pass their read scripts via a ref.
+// Powered by Kokoro (src/ttsEngine.js) instead of window.speechSynthesis —
+// same external contract (speak/stop/toggle), just a more natural voice.
 let _navLastText = "";
 let _navSpeaking = false;
 
 function navSpeak(text, onDone) {
-  if (!window.speechSynthesis) return false;
-  // Toggle off if already speaking
+  // Toggle off if already speaking the same script
   if (_navSpeaking && _navLastText === text) {
-    window.speechSynthesis.cancel();
+    ttsStop();
     _navSpeaking = false;
     _navLastText = "";
     onDone?.();
     return false; // now stopped
   }
-  window.speechSynthesis.cancel();
+  ttsStop();
   _navLastText = text;
   _navSpeaking = true;
-  const rate = (() => {
-    try {
-      const s = localStorage.getItem("scamshield_speech_speed");
-      return s ? parseFloat(s) : 0.88;
-    } catch {
-      return 0.88;
-    }
-  })();
-  const chunks = text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  chunks.forEach((chunk, i) => {
-    const u = new SpeechSynthesisUtterance(chunk);
-    u.rate = rate;
-    u.pitch = 1;
-    // On the last chunk, fire onDone when it finishes
-    if (i === chunks.length - 1) {
-      u.onend = () => {
-        _navSpeaking = false;
-        onDone?.();
-      };
-    }
-    if (i > 0) {
-      const p = new SpeechSynthesisUtterance(" ");
-      p.rate = 0.1;
-      p.volume = 0;
-      window.speechSynthesis.speak(p);
-    }
-    window.speechSynthesis.speak(u);
+  const rate = getSpeechRate();
+  ttsSpeak(text, {
+    rate,
+    onDone: () => {
+      _navSpeaking = false;
+      onDone?.();
+    },
   });
   return true; // now speaking
 }
@@ -274,24 +252,6 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
       >
         Email Sign-Up
       </NavLink>
-      <NavLink
-        to='/about'
-        style={({ isActive }) => ({
-          padding: "16px clamp(8px, 2.5vw, 20px)",
-          fontSize: "clamp(13px, 3vw, 16px)",
-          fontFamily: "sans-serif",
-          fontWeight: 600,
-          color: isActive ? "#3D1580" : "#7A5FAA",
-          textDecoration: "none",
-          borderBottom: isActive
-            ? "3px solid #3D1580"
-            : "3px solid transparent",
-          transition: "color 0.15s, border-color 0.15s",
-          whiteSpace: "nowrap",
-        })}
-      >
-        About
-      </NavLink>
 
       {/* Audio controls — 🔊 button reads/stops, ▾ opens auto-read dropdown */}
       <div
@@ -305,6 +265,7 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
         {/* Unified audio button group — both buttons share identical sizing */}
         <button
           onClick={handleSpeakBtn}
+          onMouseEnter={preloadTTS}
           style={{
             background: isSpeaking ? "#EDE8F8" : "#fff",
             border: "1.5px solid #C9B8E8",
@@ -489,10 +450,6 @@ export default function App() {
         <Route
           path='/phishing-feedback'
           element={<PhishingFeedbackPage readScriptRef={readScriptRef} />}
-        />
-        <Route
-          path='/about'
-          element={<AboutPage readScriptRef={readScriptRef} />}
         />
       </Routes>
     </BrowserRouter>

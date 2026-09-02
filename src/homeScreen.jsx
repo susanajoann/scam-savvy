@@ -75,36 +75,8 @@ const DIFFICULTIES = [
   },
 ];
 
-// ─── Speech utility ───────────────────────────────────────────────────────────
-
-function speak(text) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const rate = (() => {
-    try {
-      const s = localStorage.getItem("scamshield_speech_speed");
-      return s ? parseFloat(s) : 0.88;
-    } catch {
-      return 0.88;
-    }
-  })();
-  const chunks = text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  chunks.forEach((chunk, i) => {
-    const utterance = new SpeechSynthesisUtterance(chunk);
-    utterance.rate = rate;
-    utterance.pitch = 1;
-    if (i > 0) {
-      const pause = new SpeechSynthesisUtterance(" ");
-      pause.rate = 0.1;
-      pause.volume = 0;
-      window.speechSynthesis.speak(pause);
-    }
-    window.speechSynthesis.speak(utterance);
-  });
-}
+// Note: actual narration is handled by navSpeak() in App.jsx, powered by
+// src/ttsEngine.js. This screen only needs to register its script below.
 
 // ─── Shuffle utility ──────────────────────────────────────────────────────────
 
