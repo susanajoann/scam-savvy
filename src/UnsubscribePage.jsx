@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
+import { registerDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -63,16 +64,11 @@ export default function UnsubscribePage({ readScriptRef }) {
       });
   }, []);
 
+  // Reads whatever's actually rendered below instead of a separate
+  // hand-maintained copy of each status message.
   useEffect(() => {
-    if (!readScriptRef) return;
-    const scripts = {
-      loading: "Processing your unsubscribe request. Please wait.",
-      success: `You have been unsubscribed${email ? " for " + email : ""}. You will no longer receive simulated scam emails from ScamSavvy. If you change your mind you can sign up again at any time.`,
-      missing: "This unsubscribe link is invalid or has already been used.",
-      error: "Something went wrong. Please try again.",
-    };
-    readScriptRef.current = () => scripts[status] ?? "";
-  }, [status, email, readScriptRef]);
+    registerDomReadScript(readScriptRef, "unsubscribe-page-content");
+  }, []);
 
   return (
     <PageOuter>
@@ -179,7 +175,12 @@ function PageOuter({ children }) {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 560 }}>{children}</div>
+      <div
+        id='unsubscribe-page-content'
+        style={{ width: "100%", maxWidth: 560 }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

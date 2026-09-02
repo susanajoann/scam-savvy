@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
+import { registerDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -30,11 +31,12 @@ export default function FeedbackPage({ readScriptRef }) {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("idle"); // idle | submitting | success | error
 
-  // Register read script with NavBar 🔊 button
+  // Register read script with NavBar 🔊 button. Reads whatever's actually
+  // on screen (idle form / success message / error) instead of a separate
+  // hand-written copy — the old version here never reflected the success
+  // state at all, since it was set once and never updated.
   useEffect(() => {
-    if (!readScriptRef) return;
-    readScriptRef.current = () =>
-      "Share your feedback. We would love to hear what you thought of ScamSavvy — what worked well, what was confusing, or anything you would like to see added. All feedback is anonymous. Type your message in the text box and press Submit feedback.";
+    registerDomReadScript(readScriptRef, "feedback-page-content");
   }, []);
 
   const handleSubmit = async () => {
@@ -75,7 +77,7 @@ export default function FeedbackPage({ readScriptRef }) {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 640 }}>
+      <div id='feedback-page-content' style={{ width: "100%", maxWidth: 640 }}>
         <h1
           style={{
             fontSize: "clamp(24px, 4vw, 32px)",

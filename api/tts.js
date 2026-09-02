@@ -30,11 +30,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing text" });
   }
   if (text.length > MAX_CHARS_PER_REQUEST) {
-    return res
-      .status(400)
-      .json({
-        error: `Text too long (max ${MAX_CHARS_PER_REQUEST} chars per request)`,
-      });
+    return res.status(400).json({
+      error: `Text too long (max ${MAX_CHARS_PER_REQUEST} chars per request)`,
+    });
   }
 
   const ip =

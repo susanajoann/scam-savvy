@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
+import { registerDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -62,20 +63,11 @@ export default function ConfirmPage({ readScriptRef }) {
       });
   }, []);
 
+  // Reads whatever's actually rendered below (loading/success/missing/error
+  // card) instead of maintaining a separate copy of each status message.
   useEffect(() => {
-    if (!readScriptRef) return;
-    const scripts = {
-      loading: "Confirming your email address. Please wait.",
-      success:
-        "Your email has been confirmed. Welcome to ScamSavvy simulations. You will start receiving simulated scam emails soon — 2 to 4 per month. Each one is a safe test to help you practise spotting real scams.",
-      already: "Your email is already confirmed. You are all set.",
-      missing:
-        "This confirmation link is invalid or has expired. Please sign up again.",
-      error:
-        "Something went wrong confirming your email. Please try again or contact us.",
-    };
-    readScriptRef.current = () => scripts[status] ?? "";
-  }, [status, readScriptRef]);
+    registerDomReadScript(readScriptRef, "confirm-page-content");
+  }, []);
 
   return (
     <PageOuter>
@@ -179,7 +171,9 @@ function PageOuter({ children }) {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 560 }}>{children}</div>
+      <div id='confirm-page-content' style={{ width: "100%", maxWidth: 560 }}>
+        {children}
+      </div>
     </div>
   );
 }

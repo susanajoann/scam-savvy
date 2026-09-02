@@ -4,7 +4,7 @@
 // Audio state lives here so the 🔊 button can sit in the NavBar permanently.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import HomeScreen from "./homeScreen";
 import QuizScreen from "./quizScreen";
@@ -56,8 +56,9 @@ function saveAutoRead(value) {
 
 // Global speak function used by the NavBar to read the current page.
 // HomeScreen and QuizScreen pass their read scripts via a ref.
-// Powered by Kokoro (src/ttsEngine.js) instead of window.speechSynthesis —
-// same external contract (speak/stop/toggle), just a more natural voice.
+// Powered by OpenAI's TTS API via a serverless function (src/ttsEngine.js)
+// instead of window.speechSynthesis — same external contract
+// (speak/stop/toggle), just a more natural voice.
 let _navLastText = "";
 let _navSpeaking = false;
 
@@ -84,7 +85,22 @@ function navSpeak(text, onDone) {
   return true; // now speaking
 }
 
-function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
+// Used when turning Auto-read off — unlike navSpeak's toggle behavior,
+// this unconditionally stops and resets state, regardless of what's
+// currently playing or who started it.
+function navStopAll() {
+  ttsStop();
+  _navSpeaking = false;
+  _navLastText = "";
+}
+
+function NavBar({
+  onLogoClick,
+  autoRead,
+  setAutoRead,
+  readScriptRef,
+  scriptVersion,
+}) {
   const [audioOpen, setAudioOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -100,6 +116,28 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
     const nowSpeaking = navSpeak(script, () => setIsSpeaking(false));
     setIsSpeaking(nowSpeaking);
   };
+
+  // Auto-read: fires whenever any page registers a new script (scriptVersion
+  // bumps on every readScriptRef.current = fn assignment, from any page —
+  // see createReadScriptRef below) while the toggle is on. This is what
+  // makes Auto-read actually work, rather than just existing as a toggle
+  // with no wired behavior.
+  useEffect(() => {
+    if (!autoRead) {
+      if (isSpeaking) {
+        navStopAll();
+        setIsSpeaking(false);
+      }
+      return;
+    }
+    const script = readScriptRef?.current?.();
+    if (!script) return;
+    const nowSpeaking = navSpeak(script, () => setIsSpeaking(false));
+    setIsSpeaking(nowSpeaking);
+    // Intentionally re-runs on every scriptVersion bump, not on isSpeaking —
+    // isSpeaking here is a *result* of this effect, not a trigger for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptVersion, autoRead]);
 
   return (
     <nav
@@ -407,10 +445,40 @@ function QuizFlow({ resetRef, readScriptRef }) {
 
 // ─── Root app ─────────────────────────────────────────────────────────────────
 
+// A drop-in replacement for useRef() that looks and behaves identically to
+// every existing page (readScriptRef.current = fn to register, .current()
+// to read) but calls onChange whenever anything assigns to .current. This
+// is what lets Auto-read react to a script changing on ANY page — quiz
+// question transitions, status changes, route changes — without needing
+// to touch a single page file.
+function createReadScriptRef(onChange) {
+  let fn = () => "";
+  return {
+    get current() {
+      return fn;
+    },
+    set current(value) {
+      fn = value;
+      onChange?.();
+    },
+  };
+}
+
 export default function App() {
   const quizResetRef = useRef(null);
-  const readScriptRef = useRef(() => ""); // any screen can set this to return its read script
   const [autoRead, setAutoRead] = useState(getAutoRead);
+  const [scriptVersion, setScriptVersion] = useState(0);
+
+  // Lazily created once and held in a ref so its identity — and the script
+  // function stored inside it — survives the re-renders that scriptVersion
+  // updates themselves cause.
+  const readScriptRefHolder = useRef(null);
+  if (!readScriptRefHolder.current) {
+    readScriptRefHolder.current = createReadScriptRef(() =>
+      setScriptVersion((v) => v + 1),
+    );
+  }
+  const readScriptRef = readScriptRefHolder.current;
 
   return (
     <BrowserRouter>
@@ -419,6 +487,7 @@ export default function App() {
         autoRead={autoRead}
         setAutoRead={setAutoRead}
         readScriptRef={readScriptRef}
+        scriptVersion={scriptVersion}
       />
       <Routes>
         <Route

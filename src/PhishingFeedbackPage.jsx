@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { PHISHING_TEMPLATES } from "./phishingTemplates.js";
+import { registerDomReadScript } from "./readPageContent.js";
 
 export default function PhishingFeedbackPage({ readScriptRef }) {
   const [template, setTemplate] = useState(null);
@@ -17,13 +18,11 @@ export default function PhishingFeedbackPage({ readScriptRef }) {
     setTemplate(PHISHING_TEMPLATES.find((t) => t.id === id) ?? null);
   }, []);
 
+  // Reads whatever's actually rendered below instead of a separate
+  // hand-written copy of the explanation text.
   useEffect(() => {
-    if (!readScriptRef) return;
-    readScriptRef.current = () =>
-      template
-        ? `You clicked a simulated phishing test email. ${template.explanation}`
-        : "This was a simulated phishing test.";
-  }, [template, readScriptRef]);
+    registerDomReadScript(readScriptRef, "phishing-feedback-content");
+  }, []);
 
   return (
     <PageOuter>
@@ -65,7 +64,12 @@ function PageOuter({ children }) {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 560 }}>{children}</div>
+      <div
+        id='phishing-feedback-content'
+        style={{ width: "100%", maxWidth: 560 }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
