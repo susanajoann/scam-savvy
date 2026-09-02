@@ -15,6 +15,32 @@
 let currentAudio = null;
 let activeRequest = null; // tracks the in-flight speak() call so stop()/new calls can invalidate it
 
+// A ~0.1s silent WAV, base64-encoded. Used only to unlock audio playback.
+const SILENT_AUDIO_DATA_URI =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+
+// Call this SYNCHRONOUSLY inside a real click/tap handler, before any
+// `await`, whenever that click will eventually lead to Auto-read speaking
+// — but only after an async gap (a network request, etc.) breaks the
+// direct link between the gesture and the resulting audio.play() call.
+//
+// Browsers tie autoplay permission to genuine user gestures. Playing
+// something — even near-silent — synchronously within the gesture keeps
+// playback "unlocked" for the rest of that interaction, including code
+// that runs later after an awaited promise resolves. Without this, the
+// later programmatic play() can be silently blocked, which is exactly
+// what was happening when Auto-read didn't speak after "Start quiz"
+// (whose handler awaits a Supabase call before the quiz screen — and its
+// narration — ever appears).
+export function primeAudioPlayback() {
+  try {
+    const unlock = new Audio(SILENT_AUDIO_DATA_URI);
+    unlock.play().catch(() => {}); // ignore — this is a best-effort unlock, not real playback
+  } catch {
+    // no-op — worst case, we're back to the original (occasionally blocked) behavior
+  }
+}
+
 function splitIntoChunks(text, maxLen = 700) {
   // Stays comfortably under api/tts.js's MAX_CHARS_PER_REQUEST (800).
   const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
@@ -90,27 +116,34 @@ export function speak(text, { rate = 1, voice = "alloy", onDone } = {}) {
     const audio = new Audio(url);
     audio.playbackRate = rate;
     currentAudio = audio;
+    const chunkIndex = nextToPlay;
     nextToPlay++;
     audio.onended = () => {
       URL.revokeObjectURL(url);
       currentAudio = null;
       tryPlayNext();
     };
-    audio.play().catch((err) => {
-      // Browsers can block programmatic audio.play() if it happens too far
-      // from a direct user gesture — e.g. after an awaited network request,
-      // like the Supabase call HomeScreen makes before transitioning into
-      // the quiz. This previously failed completely silently (an unhandled
-      // promise rejection), making it look like Auto-read just "didn't
-      // work" with no clue why. Now at least it's visible in the console.
-      console.warn(
-        "[tts] audio.play() was blocked (likely an autoplay/gesture restriction):",
-        err,
-      );
-      URL.revokeObjectURL(url);
-      currentAudio = null;
-      tryPlayNext();
-    });
+    console.log(`[tts] attempting play() for chunk ${chunkIndex}`);
+    audio
+      .play()
+      .then(() => {
+        console.log(`[tts] play() succeeded for chunk ${chunkIndex}`);
+      })
+      .catch((err) => {
+        // Browsers can block programmatic audio.play() if it happens too far
+        // from a direct user gesture — e.g. after an awaited network request,
+        // like the Supabase call HomeScreen makes before transitioning into
+        // the quiz. This previously failed completely silently (an unhandled
+        // promise rejection), making it look like Auto-read just "didn't
+        // work" with no clue why. Now at least it's visible in the console.
+        console.warn(
+          `[tts] play() BLOCKED for chunk ${chunkIndex} (likely an autoplay/gesture restriction):`,
+          err,
+        );
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+        tryPlayNext();
+      });
   }
 
   function requestMore() {
