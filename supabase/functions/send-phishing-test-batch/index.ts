@@ -1,79 +1,84 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PHISHING_TEMPLATES } from "./templates.ts";
+import { PHISHING_TEMPLATES } from "../send-phishing-test-batch/templates.ts";
+import { buildPhishingEmailHtml } from "../send-phishing-test-batch/emailLayout.ts";
 
-const SUPABASE_URL       = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RESEND_API_KEY     = Deno.env.get("RESEND_API_KEY")!;
-const CRON_SECRET        = Deno.env.get("CRON_SECRET")!;
-const FROM_EMAIL         = "ScamSavvy <noreply@scam-savvy.org>";
-const SITE_URL           = "https://scam-savvy.org";
-const MAX_PER_MONTH      = 4;
-const DAILY_PROBABILITY  = MAX_PER_MONTH / 30; // ~0.133 chance per eligible day
+const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESEND_API_KEY   = Deno.env.get("RESEND_API_KEY")!;
+const CRON_SECRET      = Deno.env.get("CRON_SECRET")!;
+const SITE_URL         = "https://scam-savvy.org";
 
-const dbHeaders = {
-  apikey: SERVICE_ROLE_KEY,
-  Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-  "Content-Type": "application/json",
+const corsHeaders = {
+  "Access-Control-Allow-Origin":  "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 serve(async (req) => {
-  if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
-    return new Response("Unauthorized", { status: 401 });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  const subsRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/subscribers?confirmed=eq.true&unsubscribed=eq.false&select=id,email`,
-    { headers: dbHeaders },
-  );
-  const subscribers = await subsRes.json();
+  if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+  }
 
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  try {
+    const { email, template_id } = await req.json();
 
-  let sentCount = 0;
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: "Missing email" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
-  for (const sub of subscribers) {
-    const countRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/simulated_sends?subscriber_id=eq.${sub.id}&sent_at=gte.${startOfMonth.toISOString()}&select=id`,
-      { headers: dbHeaders },
-    );
-    const sentThisMonth = await countRes.json();
-    if (sentThisMonth.length >= MAX_PER_MONTH) continue;
+    const template = template_id
+      ? PHISHING_TEMPLATES.find((t) => t.id === template_id)
+      : PHISHING_TEMPLATES[Math.floor(Math.random() * PHISHING_TEMPLATES.length)];
 
-    if (Math.random() > DAILY_PROBABILITY) continue;
+    if (!template) {
+      return new Response(
+        JSON.stringify({ error: `Unknown template_id: ${template_id}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
-    const template =
-      PHISHING_TEMPLATES[Math.floor(Math.random() * PHISHING_TEMPLATES.length)];
     const token = crypto.randomUUID();
 
+    const dbHeaders = {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    };
+
+    // Unchanged: still your personal test table, not the real phishing_emails log.
     await fetch(`${SUPABASE_URL}/rest/v1/simulated_sends`, {
       method: "POST",
       headers: { ...dbHeaders, Prefer: "return=minimal" },
       body: JSON.stringify({
-        subscriber_id: sub.id,
+        subscriber_id: null,
         template_id: template.id,
         token,
-        is_test: false,
+        is_test: true,
       }),
     });
 
     // Tracked link now points to the Vercel API route, not a Supabase Edge Function.
-    // This avoids Supabase's JWT gateway entirely, since email links can't carry auth headers.
     const trackedLink = `${SITE_URL}/api/log-click?token=${token}`;
-    const unsubscribeLink = `${SITE_URL}/unsubscribe?id=${sub.id}`;
     const bodyHtml = template.bodyHtml.replace("{{LINK}}", trackedLink);
 
-    const html = `
-      <div style="max-width:520px;margin:0 auto;font-family:sans-serif;color:#1A0A3C;">
-        ${bodyHtml}
-        <hr style="border:none;border-top:1px solid #ddd;margin:24px 0;" />
-        <p style="font-size:11px;color:#999;">
-          This is a simulated phishing test from ScamSavvy, a program you opted into.
-          <a href="${unsubscribeLink}">Unsubscribe</a>
-        </p>
-      </div>
-    `;
+    // The report button isn't tracked here (simulated_sends is just for
+    // visual QA of your own test sends) — it goes straight to the
+    // feedback page so you can preview what a real recipient would land
+    // on after reporting.
+    const reportLink = `${SITE_URL}/phishing-feedback?template=${template.id}&reported=true`;
+
+    const html = buildPhishingEmailHtml({
+      bodyHtml,
+      reportLink,
+      footerText: "🧪 TEST SEND — this is a manual test of the ScamSavvy phishing simulation system.",
+    });
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -83,19 +88,28 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: template.fromDisplay,
-        to: [sub.email],
-        subject: template.subject,
+        to: [email],
+        subject: `[TEST] ${template.subject}`,
         html,
-        reply_to: FROM_EMAIL,
       }),
     });
 
-    if (resendRes.ok) sentCount++;
-    else console.error("Send failed for", sub.email, await resendRes.text());
-  }
+    if (!resendRes.ok) {
+      const err = await resendRes.text();
+      return new Response(
+        JSON.stringify({ error: "Resend failed", detail: err }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
-  return new Response(
-    JSON.stringify({ success: true, checked: subscribers.length, sent: sentCount }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+    return new Response(
+      JSON.stringify({ success: true, template: template.id, sentTo: email }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: "Unexpected error", detail: String(err) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
 });

@@ -1,0 +1,18 @@
+name: Generate monthly performance summaries
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # 6am UTC on the 1st of each month — summarizes the month that just ended
+  workflow_dispatch:
+
+jobs:
+  generate-summaries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger generate-monthly-summaries
+        run: |
+          curl -f -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/generate-monthly-summaries" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

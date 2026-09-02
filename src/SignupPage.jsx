@@ -154,7 +154,7 @@ export default function SignupPage({ readScriptRef }) {
           <p style={styles.successTitle}>✓ You're signed up!</p>
           <p style={styles.successBody}>
             Your email has been recorded. You will start receiving simulated
-            scam emails within the next few weeks — 2 to 4 per month. Each one
+            scam emails within the next few weeks — up to 4 per month. Each one
             is a safe test designed to help you practise spotting real scams.
           </p>
           <p style={styles.successNote}>
@@ -175,7 +175,7 @@ export default function SignupPage({ readScriptRef }) {
         {[
           {
             icon: "📧",
-            title: "2–4 emails per month",
+            title: "Up to 4 emails per month",
             desc: "Realistic simulated scam emails sent at random intervals",
           },
           {
