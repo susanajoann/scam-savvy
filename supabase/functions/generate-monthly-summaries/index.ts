@@ -37,16 +37,35 @@ serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Allows manual testing for an arbitrary month via workflow_dispatch
-  // or a direct curl with a JSON body, e.g. {"month": "2026-07"}.
-  // Defaults to last month, which is what the real monthly cron uses.
+  // Allows manual testing for an arbitrary month, and/or scoped to a
+  // single subscriber by email, via workflow_dispatch or a direct curl
+  // with a JSON body, e.g. {"month": "2026-08", "email": "you@example.com"}.
+  // Defaults to last month / all subscribers, which is what the real
+  // monthly cron uses.
   const body = await req.json().catch(() => ({}));
   const targetMonth: string = body.month || previousMonth();
 
-  const rowsRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/phishing_emails?month=eq.${targetMonth}&select=subscriber_id,clicked,reported`,
-    { headers: dbHeaders },
-  );
+  let scopedSubscriberId: string | null = null;
+  if (body.email) {
+    const subRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/subscribers?email=eq.${encodeURIComponent(body.email)}&select=id`,
+      { headers: dbHeaders },
+    );
+    const subRows = await subRes.json();
+    if (!subRows.length) {
+      return new Response(
+        JSON.stringify({ error: `No subscriber found with email ${body.email}` }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    scopedSubscriberId = subRows[0].id;
+  }
+
+  const phishingEmailsUrl = scopedSubscriberId
+    ? `${SUPABASE_URL}/rest/v1/phishing_emails?month=eq.${targetMonth}&subscriber_id=eq.${scopedSubscriberId}&select=subscriber_id,clicked,reported`
+    : `${SUPABASE_URL}/rest/v1/phishing_emails?month=eq.${targetMonth}&select=subscriber_id,clicked,reported`;
+
+  const rowsRes = await fetch(phishingEmailsUrl, { headers: dbHeaders });
 
   if (!rowsRes.ok) {
     const detail = await rowsRes.text();
