@@ -52,9 +52,20 @@ export function registerDomReadScript(readScriptRef, containerId) {
 // re-announcing (e.g. a form swapping to a success/error card) — call
 // this from an effect keyed to the state that actually changes the
 // rendered content (e.g. [status]), not on every render.
+//
+// Deferred by two animation frames: a real timing race was observed where
+// the DOM read could catch a snapshot from slightly before the browser
+// had actually painted the latest content (confirmed by comparing the
+// text sent to the TTS API against a manual, later check of the same
+// element, which had the full content). Double-rAF guarantees at least
+// one full paint has completed before the read happens.
 export function announceDomReadScript(readScriptRef, containerId) {
   if (!readScriptRef?.announce) return;
-  readScriptRef.announce(() =>
-    extractReadableText(document.getElementById(containerId)),
-  );
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      readScriptRef.announce(() =>
+        extractReadableText(document.getElementById(containerId)),
+      );
+    });
+  });
 }
