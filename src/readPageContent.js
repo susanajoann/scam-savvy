@@ -52,25 +52,9 @@ export function registerDomReadScript(readScriptRef, containerId) {
 // re-announcing (e.g. a form swapping to a success/error card) — call
 // this from an effect keyed to the state that actually changes the
 // rendered content (e.g. [status]), not on every render.
-//
-// Deferred by 400ms: a real timing race was observed specifically on
-// pages that transition automatically and fast (an async network call
-// resolving in milliseconds, going straight from "loading" to a final
-// status) — confirmed by comparing text actually sent to the TTS API
-// against a manual, later check of the same element, which had the full
-// content. A double-requestAnimationFrame defer wasn't enough to fully
-// fix it, meaning the two back-to-back announces (loading, then final
-// status) were still racing faster than that provided — a flat delay
-// gives more headroom.
 export function announceDomReadScript(readScriptRef, containerId) {
   if (!readScriptRef?.announce) return;
-  const scheduledAt = performance.now();
-  setTimeout(() => {
-    const text = extractReadableText(document.getElementById(containerId));
-    console.log(
-      `[narration] #${containerId} — scheduled at ${scheduledAt.toFixed(0)}ms, captured at ${performance.now().toFixed(0)}ms:`,
-      JSON.stringify(text),
-    );
-    readScriptRef.announce(() => text);
-  }, 400);
+  readScriptRef.announce(() =>
+    extractReadableText(document.getElementById(containerId)),
+  );
 }

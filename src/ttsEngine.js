@@ -68,7 +68,19 @@ export function primeAudioPlayback() {
 
 function splitIntoChunks(text, maxLen = 700) {
   // Stays comfortably under api/tts.js's MAX_CHARS_PER_REQUEST (800).
-  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
+  //
+  // Matches sentence-ending punctuation WITHOUT requiring trailing
+  // whitespace to follow it, plus a final catch-all for any un-punctuated
+  // remainder. This fixes a real bug: text pulled from the DOM via
+  // extractReadableText often has one element's text butted directly
+  // against the next with zero space between them (e.g. "confirmed!"
+  // immediately followed by "Welcome", since they're separate sibling
+  // elements) — the previous version required whitespace after the
+  // punctuation, and since .match() silently discards anything that
+  // doesn't match at all (rather than preserving it), that entire
+  // sentence would vanish from the output completely rather than merely
+  // being grouped oddly.
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
   const chunks = [];
   let current = "";
   for (const sentence of sentences) {
@@ -87,10 +99,6 @@ function splitIntoChunks(text, maxLen = 700) {
 // time this resolves, the ENTIRE chunk's audio is already fully decoded
 // in memory, ready to play with no further streaming/seeking involved.
 async function requestChunk(text, voice) {
-  console.log(
-    `[requestChunk] fetching (${text.length} chars):`,
-    JSON.stringify(text),
-  );
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -118,15 +126,10 @@ export function preloadTTS() {}
 // every chunk has actually played — network requests can complete out
 // of order even though decoding happens before anything is stored.
 export function speak(text, { rate = 1, voice = "alloy", onDone } = {}) {
-  const chunks = splitIntoChunks(text);
-  console.log(
-    `[speak] called with (${text.length} chars), split into ${chunks.length} chunk(s):`,
-    JSON.stringify(text),
-    chunks.map((c) => c.length),
-  );
   const request = { stopped: false };
   activeRequest = request;
 
+  const chunks = splitIntoChunks(text);
   const total = chunks.length;
   const results = new Array(total); // holds decoded AudioBuffers
   let nextToPlay = 0;
