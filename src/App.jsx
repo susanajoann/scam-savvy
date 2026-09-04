@@ -101,7 +101,12 @@ function navSpeak(text, onDone) {
 // in flight, and only restarts when the text actually differs — there's
 // no "click again to stop" concept for something the user didn't click.
 function navAutoSpeak(text, onDone) {
+  console.log(
+    `[navAutoSpeak] called with (${text.length} chars):`,
+    JSON.stringify(text),
+  );
   if (_navSpeaking && _navLastText === text) {
+    console.log(`[navAutoSpeak] deduped — already speaking this exact text`);
     return true; // already speaking (or fetching) this exact script — leave it alone
   }
   ttsStop();
@@ -164,6 +169,10 @@ function NavBar({
       return;
     }
     const script = readScriptRef?.current?.();
+    console.log(
+      `[navbar] auto-read effect read script (${script?.length ?? 0} chars):`,
+      JSON.stringify(script),
+    );
     if (!script) return;
     const nowSpeaking = navAutoSpeak(script, () => setIsSpeaking(false));
     setIsSpeaking(nowSpeaking);

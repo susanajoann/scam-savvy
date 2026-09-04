@@ -87,6 +87,10 @@ function splitIntoChunks(text, maxLen = 700) {
 // time this resolves, the ENTIRE chunk's audio is already fully decoded
 // in memory, ready to play with no further streaming/seeking involved.
 async function requestChunk(text, voice) {
+  console.log(
+    `[requestChunk] fetching (${text.length} chars):`,
+    JSON.stringify(text),
+  );
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -114,10 +118,15 @@ export function preloadTTS() {}
 // every chunk has actually played — network requests can complete out
 // of order even though decoding happens before anything is stored.
 export function speak(text, { rate = 1, voice = "alloy", onDone } = {}) {
+  const chunks = splitIntoChunks(text);
+  console.log(
+    `[speak] called with (${text.length} chars), split into ${chunks.length} chunk(s):`,
+    JSON.stringify(text),
+    chunks.map((c) => c.length),
+  );
   const request = { stopped: false };
   activeRequest = request;
 
-  const chunks = splitIntoChunks(text);
   const total = chunks.length;
   const results = new Array(total); // holds decoded AudioBuffers
   let nextToPlay = 0;
