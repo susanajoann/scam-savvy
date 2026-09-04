@@ -70,9 +70,11 @@ serve(async (req) => {
                   <strong>noreply@scam-savvy.org</strong>. Some email providers filter test emails like these into
                   spam, so add this address to your contacts now to make sure they actually reach your inbox:
                 </p>
-                <p style="font-size:13px;color:#5C3D00;line-height:1.7;margin:0;">
+                <p style="font-size:13px;color:#5C3D00;line-height:1.7;margin:0 0 6px;">
                   <strong>Gmail:</strong> open any email from us, click the three-dot menu, and select "Add to
-                  Contacts list." &nbsp;
+                  Contacts list."
+                </p>
+                <p style="font-size:13px;color:#5C3D00;line-height:1.7;margin:0;">
                   <strong>Outlook:</strong> right-click the sender's name in an email and choose "Add to Safe
                   Senders," or add it directly under Settings → Mail → Junk email → Safe senders.
                 </p>
