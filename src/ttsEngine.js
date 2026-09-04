@@ -85,6 +85,10 @@ export function preloadTTS() {}
 // played — same correctness fix as the Kokoro version, still needed here
 // since network requests can also complete out of order.
 export function speak(text, { rate = 1, voice = "alloy", onDone } = {}) {
+  console.log(
+    `[tts] speak() called with (${text.length} chars):`,
+    JSON.stringify(text),
+  );
   const request = { stopped: false };
   activeRequest = request;
 
