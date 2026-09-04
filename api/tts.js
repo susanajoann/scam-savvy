@@ -58,14 +58,16 @@ export default async function handler(req, res) {
         model: "gpt-4o-mini-tts",
         input: text,
         voice: voice || "alloy",
-        // WAV instead of MP3: browsers can mis-seek at the start and/or
-        // misjudge when playback has actually ended for MP3 streams that
-        // lack proper duration metadata (common with programmatically
-        // generated MP3, since there's no full-file encoder pass to write
-        // an accurate header) — this showed up as clipped opening words
-        // and premature cutoffs. WAV is uncompressed with no such
-        // ambiguity, at the cost of a larger response per request.
-        response_format: "wav",
+        // Back to MP3. WAV was tried based on a theory (browser
+        // duration/seeking ambiguity) that turned out to be wrong — the
+        // real bug was in DOM-read timing (since fixed) plus the
+        // browser's audio decoder handling this specific WAV output
+        // more strictly than macOS's native decoder does (confirmed via
+        // afplay playing the exact same file completely correctly, while
+        // both the <audio> element AND Web Audio's decodeAudioData
+        // truncated it). MP3 decode support is far more mature and
+        // consistent across browsers.
+        response_format: "mp3",
       }),
     });
 
@@ -76,7 +78,7 @@ export default async function handler(req, res) {
     }
 
     const arrayBuffer = await openaiRes.arrayBuffer();
-    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).send(Buffer.from(arrayBuffer));
   } catch (err) {

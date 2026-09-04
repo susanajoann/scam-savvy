@@ -19,9 +19,9 @@ import { speak as ttsSpeak, stop as ttsStop, preloadTTS } from "./ttsEngine";
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
 const SPEECH_SPEEDS = [
-  { label: "Slow", rate: 0.65 },
-  { label: "Normal", rate: 0.88 },
-  { label: "Fast", rate: 1.1 },
+  { label: "Slow", rate: 0.85 },
+  { label: "Normal", rate: 1.0 },
+  { label: "Fast", rate: 1.15 },
 ];
 const SPEECH_SPEED_KEY = "scamshield_speech_speed";
 const AUTO_READ_KEY = "scamshield_auto_read";
@@ -29,9 +29,9 @@ const AUTO_READ_KEY = "scamshield_auto_read";
 function getSpeechRate() {
   try {
     const s = localStorage.getItem(SPEECH_SPEED_KEY);
-    return s ? parseFloat(s) : 0.88;
+    return s ? parseFloat(s) : 1.0;
   } catch {
-    return 0.88;
+    return 1.0;
   }
 }
 function saveSpeechRate(rate) {
