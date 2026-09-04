@@ -83,7 +83,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: template.fromDisplay,
+        // Sent from the consistent noreply address rather than each
+        // template's fake sender identity — trades away testing "did you
+        // notice the spoofed sender" for reliable deliverability, since
+        // subscribers can whitelist one single address (see the
+        // confirmation email) instead of a different fake domain per test.
+        from: FROM_EMAIL,
         to: [sub.email],
         subject: template.subject,
         html,

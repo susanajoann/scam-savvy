@@ -1,24 +1,29 @@
 // supabase/functions/generate-monthly-summaries/index.ts
 //
 // Aggregates last month's phishing_emails into one row per subscriber in
-// monthly_summaries. Meant to run via a monthly cron (see
-// .github/workflows/generate-monthly-summaries.yml), same pattern as the
-// existing daily phishing-send cron.
+// monthly_summaries, AND sends each subscriber their real summary email —
+// no "[TEST]" wording anywhere in this path, since this is what actually
+// runs against real subscribers via the monthly cron (see
+// .github/workflows/generate-monthly-summaries.yml).
 //
 // Scoring (score_pct): reported ÷ (reported + clicked), as a percentage.
 // Emails a subscriber neither clicked nor reported (ignored entirely)
-// don't count toward this at all — it measures "when you did engage,
-// did you engage correctly," not overall engagement volume. If a
-// subscriber never clicked OR reported anything all month, there's
-// nothing to divide by; that case defaults to 100 (nothing bad happened),
-// which is an assumption worth revisiting if it doesn't feel right in
-// practice once there's real data to look at.
+// don't count toward this at all. If a subscriber never clicked OR
+// reported anything all month, that defaults to 100 (nothing bad
+// happened) — an assumption worth revisiting against real data.
+//
+// A row is only marked as sent (and the email only actually goes out) if
+// the upsert into monthly_summaries succeeds first — so the DB record
+// and the real send can't drift apart from each other.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { buildSummaryEmailHtml, monthLabel } from "./summaryEmailLayout.ts";
 
 const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESEND_API_KEY   = Deno.env.get("RESEND_API_KEY")!;
 const CRON_SECRET      = Deno.env.get("CRON_SECRET")!;
+const SITE_URL         = "https://scam-savvy.org";
 
 const dbHeaders = {
   apikey: SERVICE_ROLE_KEY,
@@ -40,10 +45,12 @@ serve(async (req) => {
   // Allows manual testing for an arbitrary month, and/or scoped to a
   // single subscriber by email, via workflow_dispatch or a direct curl
   // with a JSON body, e.g. {"month": "2026-08", "email": "you@example.com"}.
-  // Defaults to last month / all subscribers, which is what the real
-  // monthly cron uses.
+  // dryRun:true skips actually sending emails — logs to monthly_summaries
+  // as normal, but useful for testing the aggregation alone without
+  // risking a real send while iterating on this function.
   const body = await req.json().catch(() => ({}));
   const targetMonth: string = body.month || previousMonth();
+  const dryRun: boolean = body.dryRun === true;
 
   let scopedSubscriberId: string | null = null;
   if (body.email) {
@@ -84,7 +91,7 @@ serve(async (req) => {
   > = {};
 
   for (const row of rows) {
-    if (!row.subscriber_id) continue; // skip any rows with no subscriber (shouldn't normally occur for real sends)
+    if (!row.subscriber_id) continue;
     if (!bySubscriber[row.subscriber_id]) {
       bySubscriber[row.subscriber_id] = { emails_sent: 0, clicked: 0, reported: 0 };
     }
@@ -94,7 +101,21 @@ serve(async (req) => {
     if (row.reported) s.reported++;
   }
 
+  const subscriberIds = Object.keys(bySubscriber);
+  let subscriberEmails: Record<string, string> = {};
+
+  if (subscriberIds.length) {
+    const idsFilter = subscriberIds.join(",");
+    const subsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/subscribers?id=in.(${idsFilter})&select=id,email`,
+      { headers: dbHeaders },
+    );
+    const subs = await subsRes.json();
+    subscriberEmails = Object.fromEntries(subs.map((s: any) => [s.id, s.email]));
+  }
+
   let written = 0;
+  let emailsSent = 0;
   const errors: string[] = [];
 
   for (const [subscriberId, stats] of Object.entries(bySubscriber)) {
@@ -118,10 +139,48 @@ serve(async (req) => {
       }),
     });
 
-    if (upsertRes.ok) {
-      written++;
+    if (!upsertRes.ok) {
+      errors.push(`${subscriberId}: upsert failed — ${await upsertRes.text()}`);
+      continue; // don't send an email for a summary that failed to save
+    }
+    written++;
+
+    const email = subscriberEmails[subscriberId];
+    if (!email) {
+      errors.push(`${subscriberId}: no email found, summary saved but not sent`);
+      continue;
+    }
+
+    if (dryRun) continue; // aggregation + save only, no real send
+
+    const unsubscribeLink = `${SITE_URL}/unsubscribe?id=${subscriberId}`;
+    const html = buildSummaryEmailHtml({
+      month: targetMonth,
+      emailsSent: stats.emails_sent,
+      clicked: stats.clicked,
+      reported: stats.reported,
+      scorePct,
+      unsubscribeLink,
+    });
+
+    const resendRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "ScamSavvy <noreply@scam-savvy.org>",
+        to: [email],
+        subject: `Your ScamSavvy summary for ${monthLabel(targetMonth)}`,
+        html,
+      }),
+    });
+
+    if (resendRes.ok) {
+      emailsSent++;
     } else {
-      errors.push(`${subscriberId}: ${await upsertRes.text()}`);
+      errors.push(`${subscriberId}: send failed — ${await resendRes.text()}`);
     }
   }
 
@@ -129,8 +188,10 @@ serve(async (req) => {
     JSON.stringify({
       success: errors.length === 0,
       month: targetMonth,
-      subscribersConsidered: Object.keys(bySubscriber).length,
+      dryRun,
+      subscribersConsidered: subscriberIds.length,
       summariesWritten: written,
+      emailsSent,
       errors,
     }),
     { headers: { "Content-Type": "application/json" } },

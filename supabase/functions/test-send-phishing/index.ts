@@ -7,6 +7,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY   = Deno.env.get("RESEND_API_KEY")!;
 const CRON_SECRET      = Deno.env.get("CRON_SECRET")!;
 const SITE_URL         = "https://scam-savvy.org";
+const FROM_EMAIL       = "ScamSavvy <noreply@scam-savvy.org>";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
@@ -87,7 +88,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: template.fromDisplay,
+        from: FROM_EMAIL,
         to: [email],
         subject: `[TEST] ${template.subject}`,
         html,
