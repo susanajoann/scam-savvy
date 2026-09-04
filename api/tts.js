@@ -58,7 +58,14 @@ export default async function handler(req, res) {
         model: "gpt-4o-mini-tts",
         input: text,
         voice: voice || "alloy",
-        response_format: "mp3",
+        // WAV instead of MP3: browsers can mis-seek at the start and/or
+        // misjudge when playback has actually ended for MP3 streams that
+        // lack proper duration metadata (common with programmatically
+        // generated MP3, since there's no full-file encoder pass to write
+        // an accurate header) — this showed up as clipped opening words
+        // and premature cutoffs. WAV is uncompressed with no such
+        // ambiguity, at the cost of a larger response per request.
+        response_format: "wav",
       }),
     });
 
@@ -69,7 +76,7 @@ export default async function handler(req, res) {
     }
 
     const arrayBuffer = await openaiRes.arrayBuffer();
-    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Type", "audio/wav");
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).send(Buffer.from(arrayBuffer));
   } catch (err) {
