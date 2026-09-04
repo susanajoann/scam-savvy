@@ -4,7 +4,7 @@
 // Audio state lives here so the 🔊 button can sit in the NavBar permanently.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import HomeScreen from "./homeScreen";
 import QuizScreen from "./quizScreen";
@@ -14,6 +14,7 @@ import SignupPage from "./SignupPage";
 import ConfirmPage from "./ConfirmPage";
 import UnsubscribePage from "./UnsubscribePage";
 import PhishingFeedbackPage from "./PhishingFeedbackPage";
+import { speak as ttsSpeak, stop as ttsStop, preloadTTS } from "./ttsEngine";
 
 // ─── Audio state helpers ──────────────────────────────────────────────────────
 
@@ -53,59 +54,86 @@ function saveAutoRead(value) {
 
 // ─── Nav bar ──────────────────────────────────────────────────────────────────
 
-// Global speak function used by the NavBar to read the current page.
-// HomeScreen and QuizScreen pass their read scripts via a ref.
+// Global speak function used by the NavBar's manual 🔊 button. Toggles —
+// clicking again while it's speaking the same script stops it.
+// Powered by OpenAI's TTS API via a serverless function (src/ttsEngine.js)
+// instead of window.speechSynthesis — same external contract
+// (speak/stop/toggle), just a more natural voice.
 let _navLastText = "";
 let _navSpeaking = false;
 
 function navSpeak(text, onDone) {
-  if (!window.speechSynthesis) return false;
-  // Toggle off if already speaking
+  // Toggle off if already speaking the same script
   if (_navSpeaking && _navLastText === text) {
-    window.speechSynthesis.cancel();
+    ttsStop();
     _navSpeaking = false;
     _navLastText = "";
     onDone?.();
     return false; // now stopped
   }
-  window.speechSynthesis.cancel();
+  ttsStop();
   _navLastText = text;
   _navSpeaking = true;
-  const rate = (() => {
-    try {
-      const s = localStorage.getItem("scamshield_speech_speed");
-      return s ? parseFloat(s) : 0.88;
-    } catch {
-      return 0.88;
-    }
-  })();
-  const chunks = text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  chunks.forEach((chunk, i) => {
-    const u = new SpeechSynthesisUtterance(chunk);
-    u.rate = rate;
-    u.pitch = 1;
-    // On the last chunk, fire onDone when it finishes
-    if (i === chunks.length - 1) {
-      u.onend = () => {
-        _navSpeaking = false;
-        onDone?.();
-      };
-    }
-    if (i > 0) {
-      const p = new SpeechSynthesisUtterance(" ");
-      p.rate = 0.1;
-      p.volume = 0;
-      window.speechSynthesis.speak(p);
-    }
-    window.speechSynthesis.speak(u);
+  const rate = getSpeechRate();
+  ttsSpeak(text, {
+    rate,
+    onDone: () => {
+      _navSpeaking = false;
+      onDone?.();
+    },
   });
   return true; // now speaking
 }
 
-function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
+// Dedicated entry point for Auto-read — deliberately NOT a toggle.
+//
+// The bug this fixes: Auto-read's effect can fire twice in quick
+// succession for the same screen (observed in testing — React re-running
+// an effect, StrictMode, or just two renders close together). With the
+// shared navSpeak() above, the second call would see "already speaking
+// this exact text" and interpret that as a manual click-to-stop,
+// cancelling the request before its network response even arrived —
+// which is exactly why the network tab showed a successful 200 while the
+// console showed no play() attempt at all: the request was already
+// marked stopped by the time the audio came back.
+//
+// This version simply no-ops if the identical text is already playing or
+// in flight, and only restarts when the text actually differs — there's
+// no "click again to stop" concept for something the user didn't click.
+function navAutoSpeak(text, onDone) {
+  if (_navSpeaking && _navLastText === text) {
+    return true; // already speaking (or fetching) this exact script — leave it alone
+  }
+  ttsStop();
+  _navLastText = text;
+  _navSpeaking = true;
+  const rate = getSpeechRate();
+  ttsSpeak(text, {
+    rate,
+    onDone: () => {
+      _navSpeaking = false;
+      onDone?.();
+    },
+  });
+  return true;
+}
+
+// Used when turning Auto-read off — unlike navSpeak's toggle behavior,
+// this unconditionally stops and resets state, regardless of what's
+// currently playing or who started it.
+function navStopAll() {
+  ttsStop();
+  _navSpeaking = false;
+  _navLastText = "";
+}
+
+function NavBar({
+  onLogoClick,
+  autoRead,
+  setAutoRead,
+  readScriptRef,
+  scriptVersion,
+}) {
   const [audioOpen, setAudioOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -121,6 +149,28 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
     const nowSpeaking = navSpeak(script, () => setIsSpeaking(false));
     setIsSpeaking(nowSpeaking);
   };
+
+  // Auto-read: fires whenever any page calls readScriptRef.announce() (see
+  // createReadScriptRef below) while the toggle is on. Only genuine
+  // content changes call .announce() — minor in-screen selections use the
+  // silent .current = instead, so they don't interrupt narration that's
+  // already in progress.
+  useEffect(() => {
+    if (!autoRead) {
+      if (isSpeaking) {
+        navStopAll();
+        setIsSpeaking(false);
+      }
+      return;
+    }
+    const script = readScriptRef?.current?.();
+    if (!script) return;
+    const nowSpeaking = navAutoSpeak(script, () => setIsSpeaking(false));
+    setIsSpeaking(nowSpeaking);
+    // Intentionally re-runs on every scriptVersion bump, not on isSpeaking —
+    // isSpeaking here is a *result* of this effect, not a trigger for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptVersion, autoRead]);
 
   return (
     <nav
@@ -286,6 +336,7 @@ function NavBar({ onLogoClick, autoRead, setAutoRead, readScriptRef }) {
         {/* Unified audio button group — both buttons share identical sizing */}
         <button
           onClick={handleSpeakBtn}
+          onMouseEnter={preloadTTS}
           style={{
             background: isSpeaking ? "#EDE8F8" : "#fff",
             border: "1.5px solid #C9B8E8",
@@ -427,10 +478,51 @@ function QuizFlow({ resetRef, readScriptRef }) {
 
 // ─── Root app ─────────────────────────────────────────────────────────────────
 
+// A drop-in replacement for useRef() with one addition: alongside the usual
+// .current getter/setter (silent — used for the manual 🔊 button, which
+// should always read whatever's most current when clicked), it exposes
+// .announce(fn), which pages call explicitly when the visible content has
+// genuinely changed in a way worth Auto-read re-triggering for — a new
+// screen, a new quiz question, a submitted form swapping to a result card.
+//
+// The split matters: earlier, ANY assignment to .current triggered
+// Auto-read, including minor in-screen updates (e.g. clicking a difficulty
+// button just highlights a selection — it doesn't change what screen
+// you're on) — which caused Auto-read to interrupt itself constantly.
+// Pages still keep .current always fresh for on-demand reads; they just
+// call .announce() only at the moments that should actually restart
+// narration.
+function createReadScriptRef(onAnnounce) {
+  let fn = () => "";
+  return {
+    get current() {
+      return fn;
+    },
+    set current(value) {
+      fn = value; // silent — doesn't trigger Auto-read
+    },
+    announce(value) {
+      fn = value;
+      onAnnounce?.();
+    },
+  };
+}
+
 export default function App() {
   const quizResetRef = useRef(null);
-  const readScriptRef = useRef(() => ""); // any screen can set this to return its read script
   const [autoRead, setAutoRead] = useState(getAutoRead);
+  const [scriptVersion, setScriptVersion] = useState(0);
+
+  // Lazily created once and held in a ref so its identity — and the script
+  // function stored inside it — survives the re-renders that scriptVersion
+  // updates themselves cause.
+  const readScriptRefHolder = useRef(null);
+  if (!readScriptRefHolder.current) {
+    readScriptRefHolder.current = createReadScriptRef(() =>
+      setScriptVersion((v) => v + 1),
+    );
+  }
+  const readScriptRef = readScriptRefHolder.current;
 
   return (
     <BrowserRouter>
@@ -439,6 +531,7 @@ export default function App() {
         autoRead={autoRead}
         setAutoRead={setAutoRead}
         readScriptRef={readScriptRef}
+        scriptVersion={scriptVersion}
       />
       <Routes>
         <Route

@@ -68,45 +68,8 @@ const TEXT_PRINT_FOOTER =
 const TEXT_TOPIC_OF = "Topic"; // used as "Topic X of Y"
 
 // Read aloud button label
-// ─── Speech speed ────────────────────────────────────────────────────────────
-// Reads the speed the user selected on the home screen.
-// Defaults to 0.88 if nothing has been saved yet.
-const SPEECH_SPEED_KEY = "scamshield_speech_speed";
-
-function getSpeechRate() {
-  try {
-    const saved = localStorage.getItem(SPEECH_SPEED_KEY);
-    return saved ? parseFloat(saved) : 0.88;
-  } catch {
-    return 0.88;
-  }
-}
-
-// ─── Speech utility ─────────────────────────────────────────────────────────
-
-function speak(text) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-
-  // Split at sentence-ending punctuation to create natural pauses.
-  const chunks = text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-
-  chunks.forEach((chunk, i) => {
-    const utterance = new SpeechSynthesisUtterance(chunk);
-    utterance.rate = getSpeechRate(); // reads speed saved by the home screen
-    utterance.pitch = 1;
-    if (i > 0) {
-      const pause = new SpeechSynthesisUtterance(" ");
-      pause.rate = 0.1;
-      pause.volume = 0;
-      window.speechSynthesis.speak(pause);
-    }
-    window.speechSynthesis.speak(utterance);
-  });
-}
+// Note: actual narration is handled by navSpeak() in App.jsx, powered by
+// src/ttsEngine.js. This screen only needs to register its script below.
 
 // ─── Speech builders ──────────────────────────────────────────────────────────
 // Each builder reads from the TEXT_ constants and the live data — no separate
@@ -294,14 +257,18 @@ export default function QuizScreen({
     questionStartTime.current = Date.now();
   }, [scamIndex, questionIndex]);
 
-  // Register current screen script with NavBar so the 🔊 button knows what to read.
-  // Updates whenever the screen, question, or feedback state changes.
+  // Register current screen script with NavBar so the 🔊 button knows what
+  // to read, AND announce it for Auto-read — every dependency below is a
+  // genuine content change (new question, feedback reveal, results), not a
+  // minor in-screen selection, so it's correct for these to always
+  // re-trigger Auto-read.
   useEffect(() => {
     if (!readScriptRef) return;
     if (screen === "intro" && currentScam) {
       const isFirst = scamIndex === 0;
-      readScriptRef.current = () =>
-        buildIntroScript(currentScam, isFirst, isHardMode);
+      readScriptRef.announce(() =>
+        buildIntroScript(currentScam, isFirst, isHardMode),
+      );
     } else if (
       screen === "question" &&
       !isHardMode &&
@@ -310,29 +277,33 @@ export default function QuizScreen({
     ) {
       if (showFeedback) {
         const correctOption = shuffledOptions.find((o) => o.correct);
-        readScriptRef.current = () =>
+        readScriptRef.announce(() =>
           buildFeedbackScript(
             selectedOption?.correct,
             currentQuestion.explanation,
             correctOption?.text ?? "",
-          );
+          ),
+        );
       } else {
-        readScriptRef.current = () =>
-          buildQuestionScript(currentQuestion, shuffledOptions);
+        readScriptRef.announce(() =>
+          buildQuestionScript(currentQuestion, shuffledOptions),
+        );
       }
     } else if (screen === "question" && isHardMode && currentScam) {
       const hardContent = currentScam.hard;
       const bodyText = hardContent.body.map((s) => s.text).join(" ");
-      readScriptRef.current = () =>
-        `${hardContent.instruction} The message reads: ${bodyText}`;
+      readScriptRef.announce(
+        () => `${hardContent.instruction} The message reads: ${bodyText}`,
+      );
     } else if (screen === "results") {
       const totalCorrect = scamScores.reduce((sum, s) => sum + s.correct, 0);
       const totalQuestions = scamScores.reduce((sum, s) => sum + s.total, 0);
       const pct = totalQuestions
         ? Math.round((totalCorrect / totalQuestions) * 100)
         : 0;
-      readScriptRef.current = () =>
-        buildResultsScript(pct, totalCorrect, totalQuestions, scamScores);
+      readScriptRef.announce(() =>
+        buildResultsScript(pct, totalCorrect, totalQuestions, scamScores),
+      );
     }
   }, [
     screen,

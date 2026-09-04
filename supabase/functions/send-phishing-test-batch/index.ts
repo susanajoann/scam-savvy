@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { PHISHING_TEMPLATES } from "./templates.ts";
+import { buildPhishingEmailHtml } from "./emailLayout.ts";
 
 const SUPABASE_URL       = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -35,7 +36,7 @@ serve(async (req) => {
 
   for (const sub of subscribers) {
     const countRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/simulated_sends?subscriber_id=eq.${sub.id}&sent_at=gte.${startOfMonth.toISOString()}&select=id`,
+      `${SUPABASE_URL}/rest/v1/phishing_emails?subscriber_id=eq.${sub.id}&sent_at=gte.${startOfMonth.toISOString()}&select=id`,
       { headers: dbHeaders },
     );
     const sentThisMonth = await countRes.json();
@@ -46,34 +47,34 @@ serve(async (req) => {
     const template =
       PHISHING_TEMPLATES[Math.floor(Math.random() * PHISHING_TEMPLATES.length)];
     const token = crypto.randomUUID();
+    const month = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-    await fetch(`${SUPABASE_URL}/rest/v1/simulated_sends`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/phishing_emails`, {
       method: "POST",
       headers: { ...dbHeaders, Prefer: "return=minimal" },
       body: JSON.stringify({
         subscriber_id: sub.id,
         template_id: template.id,
         token,
-        is_test: false,
+        month,
       }),
     });
 
-    // Tracked link now points to the Vercel API route, not a Supabase Edge Function.
-    // This avoids Supabase's JWT gateway entirely, since email links can't carry auth headers.
-    const trackedLink = `${SITE_URL}/api/log-click?token=${token}`;
+    // Tracked links point to Vercel API routes, not Supabase Edge Functions.
+    // This avoids Supabase's JWT gateway entirely, since email links can't
+    // carry auth headers. Both links share the same token — they update
+    // different columns on the same phishing_emails row depending on
+    // which one gets clicked.
+    const trackedLink = `${SITE_URL}/api/log-phishing-click?token=${token}`;
+    const reportLink = `${SITE_URL}/api/log-phishing-report?token=${token}`;
     const unsubscribeLink = `${SITE_URL}/unsubscribe?id=${sub.id}`;
     const bodyHtml = template.bodyHtml.replace("{{LINK}}", trackedLink);
 
-    const html = `
-      <div style="max-width:520px;margin:0 auto;font-family:sans-serif;color:#1A0A3C;">
-        ${bodyHtml}
-        <hr style="border:none;border-top:1px solid #ddd;margin:24px 0;" />
-        <p style="font-size:11px;color:#999;">
-          This is a simulated phishing test from ScamSavvy, a program you opted into.
-          <a href="${unsubscribeLink}">Unsubscribe</a>
-        </p>
-      </div>
-    `;
+    const html = buildPhishingEmailHtml({
+      bodyHtml,
+      reportLink,
+      footerText: `This is a simulated phishing test from ScamSavvy, a program you opted into. <a href="${unsubscribeLink}" style="color:#999;">Unsubscribe</a>`,
+    });
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -82,7 +83,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: template.fromDisplay,
+        // Sent from the consistent noreply address rather than each
+        // template's fake sender identity — trades away testing "did you
+        // notice the spoofed sender" for reliable deliverability, since
+        // subscribers can whitelist one single address (see the
+        // confirmation email) instead of a different fake domain per test.
+        from: FROM_EMAIL,
         to: [sub.email],
         subject: template.subject,
         html,

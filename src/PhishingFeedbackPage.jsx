@@ -7,34 +7,40 @@
 
 import { useState, useEffect } from "react";
 import { PHISHING_TEMPLATES } from "./phishingTemplates.js";
+import { announceDomReadScript } from "./readPageContent.js";
 
 export default function PhishingFeedbackPage({ readScriptRef }) {
   const [template, setTemplate] = useState(null);
+  const [reported, setReported] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("template");
     setTemplate(PHISHING_TEMPLATES.find((t) => t.id === id) ?? null);
+    setReported(params.get("reported") === "true");
   }, []);
 
+  // Reads whatever's actually rendered below and announces once the
+  // template resolves from the URL param.
   useEffect(() => {
-    if (!readScriptRef) return;
-    readScriptRef.current = () =>
-      template
-        ? `You clicked a simulated phishing test email. ${template.explanation}`
-        : "This was a simulated phishing test.";
-  }, [template, readScriptRef]);
+    announceDomReadScript(readScriptRef, "phishing-feedback-content");
+  }, [template, reported]);
 
   return (
     <PageOuter>
-      <div style={styles.card}>
-        <span style={styles.bigIcon}>⚠️</span>
+      <div style={reported ? styles.cardSuccess : styles.card}>
+        <span style={styles.bigIcon}>{reported ? "✅" : "⚠️"}</span>
 
-        <h1 style={styles.title}>This was a simulated phishing test</h1>
+        <h1 style={reported ? styles.titleSuccess : styles.title}>
+          {reported
+            ? "Nice catch — that was a simulated phishing test"
+            : "This was a simulated phishing test"}
+        </h1>
 
-        <p style={styles.body}>
-          Don't worry — no real harm was done. This email was sent by ScamSavvy
-          as part of the program you signed up for.
+        <p style={reported ? styles.bodySuccess : styles.body}>
+          {reported
+            ? "You correctly identified this as suspicious and reported it instead of clicking through — exactly the right move. No real harm was possible either way; this email was sent by ScamSavvy as part of the program you signed up for."
+            : "Don't worry — no real harm was done. This email was sent by ScamSavvy as part of the program you signed up for."}
         </p>
 
         {template && (
@@ -65,7 +71,12 @@ function PageOuter({ children }) {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 560 }}>{children}</div>
+      <div
+        id='phishing-feedback-content'
+        style={{ width: "100%", maxWidth: 560 }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -74,6 +85,13 @@ const styles = {
   card: {
     background: "#FADADD",
     border: "1.5px solid #9B2335",
+    borderRadius: 16,
+    padding: "clamp(28px, 5vw, 48px)",
+    textAlign: "center",
+  },
+  cardSuccess: {
+    background: "#D8F3DC",
+    border: "1.5px solid #2D6A4F",
     borderRadius: 16,
     padding: "clamp(28px, 5vw, 48px)",
     textAlign: "center",
@@ -90,10 +108,23 @@ const styles = {
     color: "#6B1020",
     margin: "0 0 14px",
   },
+  titleSuccess: {
+    fontSize: "clamp(22px, 4vw, 28px)",
+    fontWeight: 700,
+    fontFamily: "Georgia, serif",
+    color: "#1B4332",
+    margin: "0 0 14px",
+  },
   body: {
     fontSize: "clamp(15px, 2vw, 17px)",
     lineHeight: 1.8,
     color: "#6B1020",
+    margin: 0,
+  },
+  bodySuccess: {
+    fontSize: "clamp(15px, 2vw, 17px)",
+    lineHeight: 1.8,
+    color: "#1B4332",
     margin: 0,
   },
   explanationBox: {

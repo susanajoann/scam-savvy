@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
+import { announceDomReadScript } from "./readPageContent.js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -101,21 +102,12 @@ export default function SignupPage({ readScriptRef }) {
   const [status, setStatus] = useState("idle"); // idle | submitting | success | error | duplicate
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Reads whatever's actually rendered below (form / success / error state)
+  // and re-announces whenever status changes to a new card — not on every
+  // keystroke in the email field or checkbox toggle.
   useEffect(() => {
-    if (!readScriptRef) return;
-    if (status === "success") {
-      readScriptRef.current = () =>
-        "You are signed up! Your email has been recorded. You will start receiving simulated scam emails within the next few weeks — up to 4 per month. Each one is a safe test designed to help you practise spotting real scams. You can unsubscribe at any time using the link at the bottom of any email you receive.";
-    } else if (status === "duplicate") {
-      readScriptRef.current = () =>
-        "This email is already signed up. Check your inbox for our emails, or contact us if you have any issues.";
-    } else if (status === "error") {
-      readScriptRef.current = () => "Something went wrong. Please try again.";
-    } else {
-      readScriptRef.current = () =>
-        "Sign up for ScamSavvy phishing simulations. Enter your email address and agree to the terms to receive 2 to 4 simulated scam emails per month. Each email is a safe test — if you click a suspicious link, you will see feedback explaining the scam tactic. At the end of each month you will receive a personal performance summary.";
-    }
-  }, [status, readScriptRef]);
+    announceDomReadScript(readScriptRef, "signup-page-content");
+  }, [status]);
 
   const handleSubmit = async () => {
     if (!email.trim() || !consent || status === "submitting") return;
@@ -162,7 +154,7 @@ export default function SignupPage({ readScriptRef }) {
           <p style={styles.successTitle}>✓ You're signed up!</p>
           <p style={styles.successBody}>
             Your email has been recorded. You will start receiving simulated
-            scam emails within the next few weeks — 2 to 4 per month. Each one
+            scam emails within the next few weeks — up to 4 per month. Each one
             is a safe test designed to help you practise spotting real scams.
           </p>
           <p style={styles.successNote}>
@@ -183,7 +175,7 @@ export default function SignupPage({ readScriptRef }) {
         {[
           {
             icon: "📧",
-            title: "2–4 emails per month",
+            title: "Up to 4 emails per month",
             desc: "Realistic simulated scam emails sent at random intervals",
           },
           {
@@ -302,7 +294,9 @@ function PageOuter({ children }) {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 680 }}>{children}</div>
+      <div id='signup-page-content' style={{ width: "100%", maxWidth: 680 }}>
+        {children}
+      </div>
     </div>
   );
 }

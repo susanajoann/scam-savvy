@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { PHISHING_TEMPLATES } from "../send-phishing-test-batch/templates.ts";
+import { buildPhishingEmailHtml } from "../send-phishing-test-batch/emailLayout.ts";
 
 const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY   = Deno.env.get("RESEND_API_KEY")!;
 const CRON_SECRET      = Deno.env.get("CRON_SECRET")!;
 const SITE_URL         = "https://scam-savvy.org";
+const FROM_EMAIL       = "ScamSavvy <noreply@scam-savvy.org>";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
@@ -51,6 +53,7 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
+    // Unchanged: still your personal test table, not the real phishing_emails log.
     await fetch(`${SUPABASE_URL}/rest/v1/simulated_sends`, {
       method: "POST",
       headers: { ...dbHeaders, Prefer: "return=minimal" },
@@ -66,15 +69,17 @@ serve(async (req) => {
     const trackedLink = `${SITE_URL}/api/log-click?token=${token}`;
     const bodyHtml = template.bodyHtml.replace("{{LINK}}", trackedLink);
 
-    const html = `
-      <div style="max-width:520px;margin:0 auto;font-family:sans-serif;color:#1A0A3C;">
-        ${bodyHtml}
-        <hr style="border:none;border-top:1px solid #ddd;margin:24px 0;" />
-        <p style="font-size:11px;color:#999;">
-          🧪 TEST SEND — this is a manual test of the ScamSavvy phishing simulation system.
-        </p>
-      </div>
-    `;
+    // The report button isn't tracked here (simulated_sends is just for
+    // visual QA of your own test sends) — it goes straight to the
+    // feedback page so you can preview what a real recipient would land
+    // on after reporting.
+    const reportLink = `${SITE_URL}/phishing-feedback?template=${template.id}&reported=true`;
+
+    const html = buildPhishingEmailHtml({
+      bodyHtml,
+      reportLink,
+      footerText: "🧪 TEST SEND — this is a manual test of the ScamSavvy phishing simulation system.",
+    });
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -83,7 +88,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: template.fromDisplay,
+        from: FROM_EMAIL,
         to: [email],
         subject: `[TEST] ${template.subject}`,
         html,

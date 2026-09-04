@@ -61,6 +61,23 @@ serve(async (req) => {
                 Confirm my subscription →
               </a>
 
+              <div style="background:#FFF4E5;border:1.5px solid #F0C36D;border-radius:10px;padding:16px 18px;margin:20px 0 0;">
+                <p style="font-size:14px;font-weight:700;color:#5C3D00;margin:0 0 8px;">
+                  ⚠️ One more thing — whitelist us
+                </p>
+                <p style="font-size:13px;color:#5C3D00;line-height:1.7;margin:0 0 8px;">
+                  Every email from this program — including the simulated phishing tests themselves — comes from
+                  <strong>noreply@scam-savvy.org</strong>. Some email providers filter test emails like these into
+                  spam, so add this address to your contacts now to make sure they actually reach your inbox:
+                </p>
+                <p style="font-size:13px;color:#5C3D00;line-height:1.7;margin:0;">
+                  <strong>Gmail:</strong> open any email from us, click the three-dot menu, and select "Add to
+                  Contacts list." &nbsp;
+                  <strong>Outlook:</strong> right-click the sender's name in an email and choose "Add to Safe
+                  Senders," or add it directly under Settings → Mail → Junk email → Safe senders.
+                </p>
+              </div>
+
               <p style="font-size:13px;color:#999;line-height:1.6;margin:20px 0 0;">
                 If you didn't sign up for ScamSavvy, you can ignore this email, or
                 <a href="${unsubscribeUrl}" style="color:#7A5FAA;">unsubscribe here</a>.
